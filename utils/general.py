@@ -1,3 +1,5 @@
+#### Updated lines 985 - 989
+
 import glob
 import logging
 import math
@@ -979,17 +981,30 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
     color = color or [random.randint(0, 255) for _ in range(3)]
 
-    c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
+    c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3])) # bbox corner points
     cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
     if label:
-        height = ((abs(int(x[3])) - abs(int(x[1]))) * 20) / 300
-        width = ((abs(int(x[2])) - abs(int(x[0]))) * 20) / 300
+        ##### Added HxW to the bbox label #####
+        height = (abs(int(x[3])) - abs(int(x[1]))) / 300
+        width = (abs(int(x[2])) - abs(int(x[0]))) / 300
         label = label + '   %.3f"H x %.3f"W' % (height, width)
+        #################################
         tf = max(tl - 1, 1)  # font thickness
         t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
-        c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
-        cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
+        c3 = c1[0] + t_size[0], c1[1] - t_size[1] - 3 #this is text bbox; changed variable to c3 to separate from image bbox
+        cv2.rectangle(img, c1, c3, color, -1, cv2.LINE_AA)  # text bbox filled
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+    return c1, c2
+
+def draw_measure_line():
+    pass
+    # populate list of coords <- maybe this lives one level up from plot_one_box and pob is saved to var and var to list
+    # tailgate_coords = store and get label[0] xyxy #should be tailgate
+    # handle_ coords = store and get label[1] xyxy #should be handle
+    # if label[0] and label[1]:
+        # y_min = min(int(x[1], int(x[3])))handle min of y points 
+        # handle_mid_point_x = int(abs(int(x[0]) - int(x[2]) / 2)) 
+        # cv2.line(img, (), (), (255,0,0), 2)  
 
 
 def plot_wh_methods():  # from utils.general import *; plot_wh_methods()
