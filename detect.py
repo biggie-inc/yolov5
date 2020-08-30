@@ -83,7 +83,6 @@ def detect(save_img=False):
             print(pred)
 
         # Process detections
-        print(pred)
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
                 p, s, im0 = path[i], '%g: ' % i, im0s[i].copy()
@@ -94,10 +93,15 @@ def detect(save_img=False):
             txt_path = str(Path(out) / Path(p).stem) + ('_%g' % dataset.frame if dataset.mode == 'video' else '')
             s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+            
             if det is not None and len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
-                bboxes = []
+                
+                handles_ymax = []
+                handles_xmid = []
+                tailgates_ymax = []
+                tailgates_xmid = []
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -105,7 +109,8 @@ def detect(save_img=False):
                     s += '%g %ss, ' % (n, names[int(c)])  # add to string
 
                 # Write results
-                for *xyxy, conf, cls in reversed(det):
+                for *xyxy, conf, cls in reversed(det): #coords, confidence, classes
+                    
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         with open(txt_path + '.txt', 'a') as f:
@@ -114,14 +119,33 @@ def detect(save_img=False):
                     if save_img or view_img:  # Add bbox to image
                         label = '%s %.2f' % (names[int(cls)], conf)
                         coord1, coord2 = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
-                        bboxes.append(coord1)
-                        bboxes.append(coord2)   
-                        cv2.circle(im0, coord1, 5, (255,0,255), -1)
-                        cv2.circle(im0, coord2, 5, (0,100,255), -1)    
+                        
+                        # get important points for line drawing
+                        if int(cls) == 1:
+                            ymax = max(coord1[1], coord2[1])
+                            handles_ymax.append(ymax)
+                            xmid = int((coord1[0] + coord2[0]) / 2)
+                            handles_xmid.append(xmid)
+                            cv2.circle(im0, (xmid,ymax), 8, (255,0,0), -1)
+                        
+                        elif int(cls) == 0:
+                            ymax = max(coord1[1], coord2[1])
+                            tailgates_ymax.append(ymax)
+                            xmid = int((coord1[0] + coord2[0]) / 2)
+                            tailgates_xmid.append(xmid)
+                print(handles_ymax, handles_xmid, tailgates_ymax, tailgates_xmid)
 
                 ### Adding ability to measure between bottom of handle and tailgate
+                for i, point in enumerate(handles_ymax):
+                    min_dist = [min(int(abs(point - x)) for x in tailgates_ymax)]
+                    print(f'min_dist {min_dist}')
+                    start_point = (handles_xmid[i], handles_ymax[i])
+                    print(f'start point: {start_point}')
+                    end_point = (handles_xmid[i], handles_ymax[i] + min_dist[0])
+                    print(f'end point: {end_point}')
+                    cv2.line(im0, start_point, end_point, (100,100,0), 4)
 
-            s += '\nbbox coords: %s \npreds: %s' % (bboxes, preds) # add to string
+
             # Print time (inference + NMS)
             print('%sDone. (%.3fs)' % (s, t2 - t1))
 
