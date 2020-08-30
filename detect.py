@@ -80,8 +80,10 @@ def detect(save_img=False):
         # Apply Classifier
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
+            print(pred)
 
         # Process detections
+        print(pred)
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
                 p, s, im0 = path[i], '%g: ' % i, im0s[i].copy()
@@ -95,6 +97,7 @@ def detect(save_img=False):
             if det is not None and len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                bboxes = []
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -110,8 +113,15 @@ def detect(save_img=False):
 
                     if save_img or view_img:  # Add bbox to image
                         label = '%s %.2f' % (names[int(cls)], conf)
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                        coord1, coord2 = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                        bboxes.append(coord1)
+                        bboxes.append(coord2)   
+                        cv2.circle(im0, coord1, 5, (255,0,255), -1)
+                        cv2.circle(im0, coord2, 5, (0,100,255), -1)    
 
+                ### Adding ability to measure between bottom of handle and tailgate
+
+            s += '\nbbox coords: %s \npreds: %s' % (bboxes, preds) # add to string
             # Print time (inference + NMS)
             print('%sDone. (%.3fs)' % (s, t2 - t1))
 
