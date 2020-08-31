@@ -101,7 +101,6 @@ def detect(save_img=False):
                 handles_ymax = []
                 handles_xmid = []
                 tailgates_ymax = []
-                tailgates_xmid = []
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -126,14 +125,10 @@ def detect(save_img=False):
                             handles_ymax.append(ymax)
                             xmid = int((coord1[0] + coord2[0]) / 2)
                             handles_xmid.append(xmid)
-                            cv2.circle(im0, (xmid,ymax), 8, (255,0,0), -1)
                         
                         elif int(cls) == 0:
                             ymax = max(coord1[1], coord2[1])
                             tailgates_ymax.append(ymax)
-                            xmid = int((coord1[0] + coord2[0]) / 2)
-                            tailgates_xmid.append(xmid)
-                print(handles_ymax, handles_xmid, tailgates_ymax, tailgates_xmid)
 
                 ### Adding ability to measure between bottom of handle and tailgate
                 for i, point in enumerate(handles_ymax):
