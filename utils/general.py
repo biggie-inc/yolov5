@@ -1,4 +1,4 @@
-#### Updated lines 985 - 1027
+#### Updated lines 956-962, 994 - 1030
 
 import glob
 import logging
@@ -953,6 +953,13 @@ def increment_dir(dir, comment=''):
         n = max([int(x[len(dir):x.find('_') if '_' in x else None]) for x in d]) + 1  # increment
     return dir + str(n) + ('_' + comment if comment else '')
 
+######## ADDED HYPOTENUSE FCN ########
+def hypotenuse(point1, point2):
+    a = (point1[0] - point2[0])**2
+    b = (point1[1] - point2[1])**2
+    c = int(np.sqrt(a+b))
+    return c
+######################################
 
 # Plotting functions ---------------------------------------------------------------------------------------------------
 def hist2d(x, y, n=100):
@@ -997,6 +1004,7 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     return c1, c2
 
 ####### Plots line and dist between bottom of handle and bottom of tailgate ####### 
+# not yet implemented or tested, just a draft
 def draw_measure_line(x, img, color=None, label="Distance: ", line_thickness=None):
     
     tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
@@ -1008,7 +1016,7 @@ def draw_measure_line(x, img, color=None, label="Distance: ", line_thickness=Non
     print(f'start point: {start_point}')
     end_point = (handles_xmid[i], handles_ymax[i] + min_dist[0])
     print(f'end point: {end_point}')
-    
+    # Draw image
     cv2.line(img, start_point, end_point, color, tl)
     
     if label:

@@ -8,13 +8,14 @@ from pathlib import Path
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
+import numpy as np
 from numpy import random
 
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import (
     check_img_size, non_max_suppression, apply_classifier, scale_coords,
-    xyxy2xywh, plot_one_box, strip_optimizer, set_logging)
+    xyxy2xywh, plot_one_box, strip_optimizer, set_logging, hypotenuse)
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 
@@ -99,8 +100,13 @@ def detect(save_img=False):
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
                 
                 handles_ymax = []
-                handles_xmid = []
+                #handles_xmid = []
+                handles_ymid = []
+                handle_mids = []
+
+                tailgates_ymin = []
                 tailgates_ymax = []
+                tailgate_ythird_coord = []
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -116,29 +122,65 @@ def detect(save_img=False):
                             f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
 
                     if save_img or view_img:  # Add bbox to image
-                        label = '%s %.2f' % (names[int(cls)], conf)
+                        #label = '%s %.2f' % (names[int(cls)], conf) #confidence not needed
+                        label = '%s ' % (names[int(cls)])
                         coord1, coord2 = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
                         
                         # get important points for line drawing
-                        if int(cls) == 1:
+                        if int(cls) == 1: #handles
                             ymax = max(coord1[1], coord2[1])
                             handles_ymax.append(ymax)
+
                             xmid = int((coord1[0] + coord2[0]) / 2)
-                            handles_xmid.append(xmid)
+                            ymid = int((coord1[1] + coord2[1]) / 2)
+                            handle_mids.append([xmid, ymid])
+                            #cv2.circle(im0, (xmid,ymax), 8, (255,0,0), -1)
                         
-                        elif int(cls) == 0:
+                        elif int(cls) == 0: #tailgates
+                            tailgate_xmin = min(coord1[0], coord2[0])
+
                             ymax = max(coord1[1], coord2[1])
                             tailgates_ymax.append(ymax)
+                            ymin = min(coord1[1], coord2[1])
+                            tailgates_ymin.append(ymin)
+                            tailgate_ythird = int(abs(coord1[1]-coord2[1])/3+ymin)
+                            tailgate_ythird_coord.append([tailgate_xmin, tailgate_ythird])
+                
+                # added ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
+                for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
+                    hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
+                    closest_index = np.argmin(hyps)
 
-                ### Adding ability to measure between bottom of handle and tailgate
-                for i, point in enumerate(handles_ymax):
-                    min_dist = [min(int(abs(point - x)) for x in tailgates_ymax)]
-                    print(f'min_dist {min_dist}')
-                    start_point = (handles_xmid[i], handles_ymax[i])
-                    print(f'start point: {start_point}')
-                    end_point = (handles_xmid[i], handles_ymax[i] + min_dist[0])
-                    print(f'end point: {end_point}')
-                    cv2.line(im0, start_point, end_point, (100,100,0), 4)
+                    if handle_mid[1] < tailgate_ythird_coord[closest_index][1]:
+                        min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax])
+                        start_point = (handle_mid[0], handles_ymax[i])
+                        end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg)
+                        cv2.line(im0, start_point, end_point, (100,100,0), 4)
+                        line_mid = int((start_point[1] + end_point[1])/2)
+                        cv2.putText(im0, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
+                                    thickness=2, lineType=cv2.LINE_AA)
+
+                ### Previous ability to measure between bottom of handle and tailgate --- was not robust.
+                ### Keeping until determined not needed
+                # for i, (mid_point, max_point)  in enumerate(zip(handles_ymid, handles_ymax)):
+                #     print(f'\nmidpoint: {mid_point}')
+                #     min_y_dist = min([int(abs(mid_point - x)) for x in tailgate_ythird]) # gets min distance from handle midpoint to tailgate third
+                #     print(f'min y dist: {min_y_dist}')
+                #     print(f'tailgate third: {tailgate_ythird}')
+                #     min_dist_third = min([x for x in tailgate_ythird if abs(x - min_y_dist) in handles_ymid])
+                #     print(f'min_dist_third: {min_dist_third}')
+                #     if mid_point < min_dist_third: #handle mid point in top 1/3 of truck
+                #         min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax])
+                #         print(f'min_dist_tg {min_dist_tg}')
+                #         start_point = (handles_xmid[i], handles_ymax[i])
+                #         print(f'start point: {start_point}')
+                #         end_point = (handles_xmid[i], handles_ymax[i] + min_dist_tg)
+                #         print(f'end point: {end_point}')
+                #         cv2.line(im0, start_point, end_point, (100,100,0), 4)
+                #         label = f'Distance: {min_dist_tg/300:.4f}"L'
+                #         line_mid = int((start_point[1] + end_point[1])/2)
+                #         cv2.putText(im0, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
+                #                     thickness=2, lineType=cv2.LINE_AA)
 
 
             # Print time (inference + NMS)
