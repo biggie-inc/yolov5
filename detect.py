@@ -100,7 +100,11 @@ def detect(save_img=False):
                 
                 handles_ymax = []
                 handles_xmid = []
+                handles_ymid = []
+
+                tailgates_ymin = []
                 tailgates_ymax = []
+                tailgate_third = []
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -123,22 +127,39 @@ def detect(save_img=False):
                         if int(cls) == 1:
                             ymax = max(coord1[1], coord2[1])
                             handles_ymax.append(ymax)
+                            ymid = int((coord1[1] + coord2[1]) / 2)
+                            handles_ymid.append(ymid)
                             xmid = int((coord1[0] + coord2[0]) / 2)
                             handles_xmid.append(xmid)
+                            #cv2.circle(im0, (xmid,ymax), 8, (255,0,0), -1)
                         
                         elif int(cls) == 0:
                             ymax = max(coord1[1], coord2[1])
                             tailgates_ymax.append(ymax)
+                            ymin = min(coord1[1], coord2[1])
+                            tailgates_ymin.append(ymin)
+                            tailgate_third.append(int(abs(coord1[1]-coord2[1])/3+ymin))
 
                 ### Adding ability to measure between bottom of handle and tailgate
-                for i, point in enumerate(handles_ymax):
-                    min_dist = [min(int(abs(point - x)) for x in tailgates_ymax)]
-                    print(f'min_dist {min_dist}')
-                    start_point = (handles_xmid[i], handles_ymax[i])
-                    print(f'start point: {start_point}')
-                    end_point = (handles_xmid[i], handles_ymax[i] + min_dist[0])
-                    print(f'end point: {end_point}')
-                    cv2.line(im0, start_point, end_point, (100,100,0), 4)
+                for i, (mid_point, max_point)  in enumerate(zip(handles_ymid, handles_ymax)):
+                    print(f'\nmidpoint: {mid_point}')
+                    min_y_dist = min([int(abs(mid_point - x)) for x in tailgate_third]) # gets min distance from handle midpoint to tailgate third
+                    print(f'min y dist: {min_y_dist}')
+                    print(f'tailgate third: {tailgate_third}')
+                    min_dist_third = min([x for x in tailgate_third if abs(x - min_y_dist) in handles_ymid])
+                    print(f'min_dist_third: {min_dist_third}')
+                    if mid_point < min_dist_third: #handle mid point in top 1/3 of truck
+                        min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax])
+                        print(f'min_dist_tg {min_dist_tg}')
+                        start_point = (handles_xmid[i], handles_ymax[i])
+                        print(f'start point: {start_point}')
+                        end_point = (handles_xmid[i], handles_ymax[i] + min_dist_tg)
+                        print(f'end point: {end_point}')
+                        cv2.line(im0, start_point, end_point, (100,100,0), 4)
+                        label = f'Distance: {min_dist_tg/300:.4f}"L'
+                        line_mid = int((start_point[1] + end_point[1])/2)
+                        cv2.putText(im0, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
+                                    thickness=2, lineType=cv2.LINE_AA)
 
 
             # Print time (inference + NMS)
