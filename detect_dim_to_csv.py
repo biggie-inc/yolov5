@@ -4,6 +4,7 @@ import platform
 import shutil
 import time
 from pathlib import Path
+import csv
 
 import cv2
 import torch
@@ -24,7 +25,6 @@ def detect(save_img=False):
         opt.output, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
     webcam = source.isnumeric() or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
 
-    # Tailgate dimension dict
     tailgate_dims = []
 
     # Initialize
@@ -130,16 +130,16 @@ def detect(save_img=False):
                         coord1, coord2, dim_label = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
                         
                         # get important points for line drawing
-                        # if int(cls) == 1: #handles
-                        #     ymax = max(coord1[1], coord2[1])
-                        #     handles_ymax.append(ymax)
+                        if int(cls) == 1: #handles
+                            ymax = max(coord1[1], coord2[1])
+                            handles_ymax.append(ymax)
 
-                        #     xmid = int((coord1[0] + coord2[0]) / 2)
-                        #     ymid = int((coord1[1] + coord2[1]) / 2)
-                        #     handle_mids.append([xmid, ymid])
+                            xmid = int((coord1[0] + coord2[0]) / 2)
+                            ymid = int((coord1[1] + coord2[1]) / 2)
+                            handle_mids.append([xmid, ymid])
                             #cv2.circle(im0, (xmid,ymax), 8, (255,0,0), -1)
                         
-                        if int(cls) == 0: #tailgates
+                        elif int(cls) == 0: #tailgates
                             tailgate_xmin = min(coord1[0], coord2[0])
 
                             ymax = max(coord1[1], coord2[1])
@@ -148,21 +148,23 @@ def detect(save_img=False):
                             tailgates_ymin.append(ymin)
                             tailgate_ythird = int(abs(coord1[1]-coord2[1])/3+ymin)
                             tailgate_ythird_coord.append([tailgate_xmin, tailgate_ythird])
+
                             tailgate_dims.append(dim_label)
+                            
                 
                 # added ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
-                # for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
-                #     hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
-                #     closest_index = np.argmin(hyps)
+                for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
+                    hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
+                    closest_index = np.argmin(hyps)
 
-                #     if handle_mid[1] < tailgate_ythird_coord[closest_index][1]:
-                #         min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax])
-                #         start_point = (handle_mid[0], handles_ymax[i])
-                #         end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg)
-                #         cv2.line(im0, start_point, end_point, (100,100,0), 4)
-                #         line_mid = int((start_point[1] + end_point[1])/2)
-                #         cv2.putText(im0, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
-                #                     thickness=2, lineType=cv2.LINE_AA)
+                    if handle_mid[1] < tailgate_ythird_coord[closest_index][1]:
+                        min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax])
+                        start_point = (handle_mid[0], handles_ymax[i])
+                        end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg)
+                        cv2.line(im0, start_point, end_point, (100,100,0), 4)
+                        line_mid = int((start_point[1] + end_point[1])/2)
+                        cv2.putText(im0, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
+                                    thickness=2, lineType=cv2.LINE_AA)
 
                 ### Previous ability to measure between bottom of handle and tailgate --- was not robust.
                 ### Keeping until determined not needed
@@ -185,7 +187,6 @@ def detect(save_img=False):
                 #         line_mid = int((start_point[1] + end_point[1])/2)
                 #         cv2.putText(im0, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
                 #                     thickness=2, lineType=cv2.LINE_AA)
-
 
             # Print time (inference + NMS)
             print('%sDone. (%.3fs)' % (s, t2 - t1))
@@ -218,9 +219,12 @@ def detect(save_img=False):
         if platform.system() == 'Darwin' and not opt.update:  # MacOS
             os.system('open ' + save_path)
 
-    print('Done. (%.3fs)' % (time.time() - t0))
-    return tailgate_dims[0]
 
+    with open('/mydrive/yolov5/tailgate_dimensions.csv', mode='a') as dim_file:
+        dim_writer = csv.writer(dim_file, delimiter=',')
+        dim_writer.writerow([f'{source}',f'{tailgate_dims[0]}'])
+    
+    print('Done. (%.3fs)' % (time.time() - t0))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
