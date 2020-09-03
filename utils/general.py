@@ -994,14 +994,15 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
         ##### Added HxW to the bbox label #####
         height = (abs(int(x[3])) - abs(int(x[1]))) / 300
         width = (abs(int(x[2])) - abs(int(x[0]))) / 300
-        label = label + '   %.4f"H x %.4f"W' % (height, width)
+        dim_label = '%.4f"W x %.4f"H' % (width, height)
+        label = f'{label}    {dim_label}'
         ######################################
         tf = max(tl - 1, 1)  # font thickness
         t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
         c3 = c1[0] + t_size[0], c1[1] - t_size[1] - 3 #this is text bbox; changed variable to c3 to separate from image bbox
         cv2.rectangle(img, c1, c3, color, -1, cv2.LINE_AA)  # text bbox filled
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
-    return c1, c2
+    return c1, c2, dim_label
 
 ####### Plots line and dist between bottom of handle and bottom of tailgate ####### 
 # not yet implemented or tested, just a draft
