@@ -6,13 +6,11 @@
 
 
 # train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 3) list: [path1/images/, path2/images/]
-
-train: ../Train  # 98 images
-val: ../Train/  # 98 images
+train: ../3000e_training_set/  # 200 rear truck photos and 124 outlines (25 added from poor test results)
+val: ../3000e_training_set/  
 
 # number of classes
-nc: 2
+nc: 3
 
 # class names
-names: ['tailgate', 'handle']
-
+names: ['tailgate', 'handle', 'plate']
