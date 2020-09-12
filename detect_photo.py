@@ -81,7 +81,6 @@ def detect(save_img=False):
         # Apply Classifier
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
-            print(pred)
 
         # Process detections
         for i, det in enumerate(pred):  # detections per image
@@ -113,8 +112,10 @@ def detect(save_img=False):
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += '%g %ss, ' % (n, names[int(c)])  # add to string
 
+                det_sorted = sorted(det, key=lambda x: x[-1]) # sort detected items by last index which is class
+                
                 # Write results
-                for *xyxy, conf, cls in reversed(det): #coords, confidence, classes.... reversed for some reason? But actually helpful since plate is cls 2
+                for *xyxy, conf, cls in reversed(det_sorted): #coords, confidence, classes.... reversed for some reason? But actually helpful since plate is cls 2
                     
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
@@ -122,7 +123,7 @@ def detect(save_img=False):
                             f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
 
                     if int(cls) == 2: # license plate
-                        license_width = abs(int(x[2]) - int(x[0]))
+                        license_width = abs(int(xyxy[2]) - int(xyxy[0]))
                         px_ratio = license_width / 12   # number of pixels per inch as license plates are 12"
 
                     if save_img or view_img:  # Add bbox to image
@@ -161,6 +162,7 @@ def detect(save_img=False):
                         end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg)
                         cv2.line(im0, start_point, end_point, (100,100,0), 4)
                         line_mid = int((start_point[1] + end_point[1])/2)
+                        label = f'Distance: {((end_point[1] - start_point[1]) / px_ratio):.4f}"'
                         cv2.putText(im0, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
                                     thickness=2, lineType=cv2.LINE_AA)
 

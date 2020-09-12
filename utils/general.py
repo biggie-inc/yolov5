@@ -1000,6 +1000,7 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None, px_ratio=N
         ######################################
     else:
         label = label
+        dim_label = None
     tf = max(tl - 1, 1)  # font thickness
     t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
     c3 = c1[0] + t_size[0], c1[1] - t_size[1] - 3 #this is text bbox; changed variable to c3 to separate from image bbox
