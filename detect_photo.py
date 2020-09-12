@@ -128,7 +128,7 @@ def detect(save_img=False):
                     if save_img or view_img:  # Add bbox to image
                         #label = '%s %.2f' % (names[int(cls)], conf) #confidence not needed
                         label = '%s ' % (names[int(cls)])
-                        coord1, coord2, dim_label = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                        coord1, coord2, dim_label = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3, px_ratio=px_ratio)
                         
                         # get important points for line drawing
                         if int(cls) == 1: #handles
