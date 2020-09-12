@@ -983,7 +983,7 @@ def butter_lowpass_filtfilt(data, cutoff=1500, fs=50000, order=5):
     return filtfilt(b, a, data)  # forward-backward filter
 
 
-def plot_one_box(x, img, color=None, label=None, line_thickness=None):
+def plot_one_box(x, img, color=None, label=None, line_thickness=None, px_ratio=300):
     # Plots one bounding box on image img
     tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
     color = color or [random.randint(0, 255) for _ in range(3)]
@@ -992,10 +992,10 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
     if label:
         ##### Added HxW to the bbox label #####
-        height = (abs(int(x[3])) - abs(int(x[1]))) / 300
-        width = (abs(int(x[2])) - abs(int(x[0]))) / 300
+        height = (abs(int(x[3])) - abs(int(x[1]))) / px_ratio
+        width = (abs(int(x[2])) - abs(int(x[0]))) / px_ratio
         dim_label = '%.4f"W x %.4f"H' % (width, height)
-        label = f'{label}    {dim_label}'
+        label = f'{label}  {dim_label}'
         ######################################
         tf = max(tl - 1, 1)  # font thickness
         t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
