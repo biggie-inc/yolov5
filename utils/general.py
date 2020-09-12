@@ -983,29 +983,32 @@ def butter_lowpass_filtfilt(data, cutoff=1500, fs=50000, order=5):
     return filtfilt(b, a, data)  # forward-backward filter
 
 
-def plot_one_box(x, img, color=None, label=None, line_thickness=None):
+def plot_one_box(x, img, color=None, label=None, line_thickness=None, px_ratio=None):
     # Plots one bounding box on image img
     tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
     color = color or [random.randint(0, 255) for _ in range(3)]
 
     c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3])) # bbox corner points
     cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
-    if label:
+    # if label: # original if statement
+    if px_ratio: # new if statement - now label style based on existence of measurements
         ##### Added HxW to the bbox label #####
-        height = (abs(int(x[3])) - abs(int(x[1]))) / 300
-        width = (abs(int(x[2])) - abs(int(x[0]))) / 300
+        height = (abs(int(x[3])) - abs(int(x[1]))) / px_ratio
+        width = (abs(int(x[2])) - abs(int(x[0]))) / px_ratio
         dim_label = '%.4f"W x %.4f"H' % (width, height)
-        label = f'{label}    {dim_label}'
+        label = f'{label}  {dim_label}'
         ######################################
-        tf = max(tl - 1, 1)  # font thickness
-        t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
-        c3 = c1[0] + t_size[0], c1[1] - t_size[1] - 3 #this is text bbox; changed variable to c3 to separate from image bbox
-        cv2.rectangle(img, c1, c3, color, -1, cv2.LINE_AA)  # text bbox filled
-        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+    else:
+        label = label
+    tf = max(tl - 1, 1)  # font thickness
+    t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
+    c3 = c1[0] + t_size[0], c1[1] - t_size[1] - 3 #this is text bbox; changed variable to c3 to separate from image bbox
+    cv2.rectangle(img, c1, c3, color, -1, cv2.LINE_AA)  # text bbox filled
+    cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
     return c1, c2, dim_label
 
 ####### Plots line and dist between bottom of handle and bottom of tailgate ####### 
-# not yet implemented or tested, just a draft
+# NOT YET IMPLEMENTED OR TESTED - JUST A DRAFT
 def draw_measure_line(x, img, color=None, label="Distance: ", line_thickness=None):
     
     tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
