@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 import argparse
 import os
 import platform
@@ -132,16 +134,17 @@ def detect(save_img=False):
                         coord1, coord2, dim_label = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3, px_ratio=px_ratio)
                         
                         # get important points for line drawing
-                        if int(cls) == 1: #handles
+                        if int(cls) == 1: #handle
                             ymax = max(coord1[1], coord2[1])
                             handles_ymax.append(ymax)
 
                             xmid = int((coord1[0] + coord2[0]) / 2)
                             ymid = int((coord1[1] + coord2[1]) / 2)
                             handle_mids.append([xmid, ymid])
-                            #cv2.circle(im0, (xmid,ymax), 8, (255,0,0), -1)
+                            
+                            handle_img = img[:,coord1[0]:coord2[0], coord1[1]:coord2[1]]
                         
-                        elif int(cls) == 0: #tailgates
+                        elif int(cls) == 0: #tailgate
                             tailgate_xmin = min(coord1[0], coord2[0])
 
                             ymax = max(coord1[1], coord2[1])
@@ -150,7 +153,13 @@ def detect(save_img=False):
                             tailgates_ymin.append(ymin)
                             tailgate_ythird = int(abs(coord1[1]-coord2[1])/3+ymin)
                             tailgate_ythird_coord.append([tailgate_xmin, tailgate_ythird])
-                
+
+                            #tailgate_img = img[coord1[0]:coord2[0], coord1[1]:coord2[1]]
+                            #
+
+
+
+
                 # added ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
                 for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
                     hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
@@ -221,6 +230,7 @@ def detect(save_img=False):
             os.system('open ' + save_path)
 
     print('Done. (%.3fs)' % (time.time() - t0))
+    return tailgate_img, handle_img
 
 
 if __name__ == '__main__':
