@@ -89,10 +89,10 @@ def detect(save_img=False):
             else:
                 p, s, im0 = path, '', im0s
 
-            img_orig = im0s.copy()
+            img_orig = im0s.copy() # creates a copy making img_orig for cropped versions and im0 separate for bbox version
 
             out_path = str(Path(out))    
-            file_name = str(Path(p).name).split('.')[0]
+            file_name = str(Path(p).name).split('.')[0] # gets name of file without extension
             save_path = str(Path(out) / Path(p).name)
             txt_path = str(Path(out) / Path(p).stem) + ('_%g' % dataset.frame if dataset.mode == 'video' else '')
             s += '%gx%g ' % img.shape[2:]  # print string
@@ -142,7 +142,7 @@ def detect(save_img=False):
                         cont = contours[0]
                         x,y,w,h = cv2.boundingRect(cont)
                         edges = gray[y:y+h,x:x+w]
-                        #cv2.imwrite(f'{out_path}/{file_name}_p_edge.png', edges)
+                        cv2.imwrite(f'{out_path}/{file_name}_p_edge.png', edges)
                     
                     elif int(cls) == 1: #handle
                         im_h = img_orig[y1:y2, x1:x2]
@@ -153,7 +153,7 @@ def detect(save_img=False):
                         x,y,w,h = cv2.boundingRect(cont)
                         canny = cv2.Canny(im_h, 100, 200)
                         edges = gray[y:y+h,x:x+w]
-                        #cv2.imwrite(f'{out_path}/{file_name}_h_edge.png', canny)
+                        cv2.imwrite(f'{out_path}/{file_name}_h_edge.png', canny)
                         
                         
                     elif int(cls) == 0: #tailgate
@@ -203,7 +203,7 @@ def detect(save_img=False):
                 # added ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
                 for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
                     hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
-                    closest_index = np.argmin(hyps)
+                    closest_index = np.argmin(hyps) # gets index of closest point via hypotenuse
 
                     if handle_mid[1] < tailgate_ythird_coord[closest_index][1]:
                         min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax])

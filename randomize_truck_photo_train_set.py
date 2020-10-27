@@ -10,10 +10,11 @@ destination = '/Users/DanCassin/Desktop/Biggie/rear_truck_photos/training_photos
 
 total_trucks = os.listdir(source)
 
-random_index = random.sample(range(0,1000), 200)
+print(total_trucks)
+# random_index = random.sample(range(0,1000), 200)
 
-random_train_200 = [total_trucks[i] for i in random_index]
+# random_train_200 = [total_trucks[i] for i in random_index]
 
-for file in random_train_200:
-     new_path = shutil.move(f'{source}/{file}', destination)
-     print(new_path)
+# for file in random_train_200:
+#      new_path = shutil.move(f'{source}/{file}', destination)
+#      print(new_path)
