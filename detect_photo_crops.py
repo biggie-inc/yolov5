@@ -142,7 +142,7 @@ def detect(save_img=False):
                         cont = contours[0]
                         x,y,w,h = cv2.boundingRect(cont)
                         edges = gray[y:y+h,x:x+w]
-                        cv2.imwrite(f'{out_path}/{file_name}_p_edge.png', edges)
+                        cv2.imwrite(f'{out_path}/{file_name}_p_edge.png', im_p)
                     
                     elif int(cls) == 1: #handle
                         im_h = img_orig[y1:y2, x1:x2]
@@ -153,19 +153,19 @@ def detect(save_img=False):
                         x,y,w,h = cv2.boundingRect(cont)
                         canny = cv2.Canny(im_h, 100, 200)
                         edges = gray[y:y+h,x:x+w]
-                        cv2.imwrite(f'{out_path}/{file_name}_h_edge.png', canny)
+                        cv2.imwrite(f'{out_path}/{file_name}_h_edge.png', im_h)
                         
                         
                     elif int(cls) == 0: #tailgate
                         im_t = img_orig[y1:y2, x1:x2]
                         gray = cv2.cvtColor(im_t,cv2.COLOR_BGR2GRAY)
-                        _,thresh = cv2.threshold(gray,100,200,cv2.THRESH_BINARY)
+                        _,thresh = cv2.threshold(gray.copy(),100,200,cv2.THRESH_BINARY)
                         contours,hierarchy = cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
                         cont = contours[0]
                         x,y,w,h = cv2.boundingRect(cont)
                         canny = cv2.Canny(im_h, 0, 200)
                         edges = gray[y:y+h,x:x+w]
-                        cv2.imwrite(f'{out_path}/{file_name}_t_edge.png', gray)
+                        cv2.imwrite(f'{out_path}/{file_name}_t_edge.png', im_t)
 
                     if save_img or view_img:  # Add bbox to image
                         #label = '%s %.2f' % (names[int(cls)], conf) #confidence not needed
