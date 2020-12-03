@@ -19,6 +19,146 @@ from utils.general import (
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 
+
+def apply_brightness_contrast(input_img, brightness = 0, contrast = 0):
+    
+    if brightness != 0:
+        if brightness > 0:
+            shadow = brightness
+            highlight = 255
+        else:
+            shadow = 0
+            highlight = 255 + brightness
+        alpha_b = (highlight - shadow)/255
+        gamma_b = shadow
+        
+        buf = cv2.addWeighted(input_img, alpha_b, input_img, 0, gamma_b)
+    else:
+        buf = input_img.copy()
+    
+    if contrast != 0:
+        f = 131*(contrast + 127)/(127*(131-contrast))
+        alpha_c = f
+        gamma_c = 127*(1-f)
+        
+        buf = cv2.addWeighted(buf, alpha_c, buf, 0, gamma_c)
+
+    return buf
+
+
+def auto_canny(gray_image, sigma=0.66):
+    #compute median of single channel pixel intentsities
+    med = np.median(gray_image)
+
+    #apply automatic canny edge detection using median and sigma
+    lower = int(max(0, (1.0-sigma)*med))
+    upper = int(min(255, (1.0+sigma)*med))
+    edged = cv2.Canny(gray_image, lower, upper)
+
+    return edged
+
+
+def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, tailgate_ythird_coord, px_ratio):
+#  ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
+    for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
+        hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
+        closest_index = np.argmin(hyps) # gets index of closest point via hypotenuse
+
+        if handle_mid[1] < tailgate_ythird_coord[closest_index][1]: # if midpoint of handle is in top 1/3 of tailgate
+            min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax]) # if multiple handles found, finds closest tailgate
+            start_point = (handle_mid[0], handles_ymax[i]) # start point for drawn line
+            end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg) # end point for drawn line
+            cv2.line(image, start_point, end_point, (100,100,0), 4)
+            line_mid = int((start_point[1] + end_point[1])/2) # mid point for text
+            label = f'Distance: {((end_point[1] - start_point[1]) / px_ratio):.4f}"'
+            cv2.putText(image, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
+                        thickness=2, lineType=cv2.LINE_AA)
+            return start_point
+        else:
+            return False
+
+def tailgate_masked(image, brightness, contrast, kernel):
+    contrast = apply_brightness_contrast(image.copy(), brightness=brightness, contrast=contrast)
+    bilat = cv2.bilateralFilter(contrast.copy(),9,75,75)  #gaussian blur faster than bilateralFilter
+
+    edges = auto_canny(bilat)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,kernel) 
+    dilated = cv2.dilate(edges.copy(), kernel) #dilating edges to connect segments
+
+    edges2 = auto_canny(dilated.copy()) #getting edges of dilated image
+
+    cnts, _ = cv2.findContours(edges2.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+    max_contour = max(cnts, key=cv2.contourArea) #largest contour (hopefully the tailgate)
+    hull = cv2.convexHull(max_contour)
+
+    # drawn_ctrs = cv2.drawContours(image.copy(), [hull], -1, (0, 255, 0), 1) #can be removed, just for show
+
+    BGRA = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2BGRA)
+
+    masked = cv2.drawContours(BGRA.copy(), [hull], -1, (0,0,0,0), -1)
+
+    masked_image = cv2.bitwise_and(BGRA, masked)
+
+    # fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15,10))
+    # ax1.imshow(drawn_ctrs)
+    # ax1.axis('off')
+    # ax2.imshow(masked_image)
+    # ax2.axis('off')
+    # plt.tight_layout();
+
+    return masked_image
+
+
+def handle_masked(image, brightness, contrast):
+    # This function needs to use whatever bright/contrast levels for the tg
+    adjusted = apply_brightness_contrast(image.copy(), brightness=brightness, contrast=contrast)
+    bilat = cv2.bilateralFilter(adjusted.copy(),9,75,75)  #gaussian blur faster than bilateralFilter
+    
+    edges = auto_canny(bilat.copy())
+
+    # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)) 
+    # dilated = cv2.dilate(edges.copy(), kernel) #dilating edges to connect segments
+
+    # edges5 = cv2.Canny(dilated.copy(), 100, 200) #getting edges of dilated image
+
+    cnts, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+    max_contour = max(cnts, key=cv2.contourArea) #largest contour (hopefully the handle)
+    hull = cv2.convexHull(max_contour)
+
+    # drawn_ctrs = cv2.drawContours(image.copy(), [hull], -1, (0, 255, 0), 1) #can be removed, just for show
+
+    BGRA = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2RGBA)
+
+    mask = np.zeros(BGRA.shape, BGRA.dtype)
+    cv2.fillPoly(mask, [hull], (255,)*BGRA.shape[2], )
+
+    masked_image = cv2.bitwise_and(BGRA, mask)
+
+    # fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15,10))
+    # ax1.imshow(drawn_ctrs)
+    # ax1.axis('off')
+    # ax2.imshow(masked_image)
+    # ax2.axis('off')
+    # plt.tight_layout();
+
+    return masked_image
+
+
+def final_truck(image, transp_tg, transp_h, tg_coords, h_coords):
+    final_image = image.copy()
+
+    tg_y1, tg_y2, tg_x1, tg_x2  = tg_coords
+    h_y1, h_y2, h_x1, h_x2 = h_coords
+
+    final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg
+    final_image[h_y1:h_y2, h_x1:h_x2] = transp_h
+
+    return final_image
+
+
 def detect(save_img=False):
     out, source, weights, view_img, save_txt, imgsz = \
         opt.output, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
@@ -89,7 +229,7 @@ def detect(save_img=False):
             else:
                 p, s, im0 = path, '', im0s
 
-            img_orig = im0s.copy() # creates a copy making img_orig for cropped versions and im0 separate for bbox version
+            img_crops = im0s.copy() # creates a copy making img_crops for cropped versions and im0 separate for bbox version
 
             out_path = str(Path(out))    
             file_name = str(Path(p).name).split('.')[0] # gets name of file without extension
@@ -104,12 +244,17 @@ def detect(save_img=False):
                 
                 handles_ymax = []
                 #handles_xmid = []
-                handles_ymid = []
                 handle_mids = []
 
                 tailgates_ymin = []
                 tailgates_ymax = []
                 tailgate_ythird_coord = []
+
+                brightness = 25
+                contrast = 65
+                px_ratio = 1
+
+                crop_coords = {}
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -120,61 +265,47 @@ def detect(save_img=False):
                 
                 # Write results
                 for *xyxy, conf, cls in reversed(det_sorted): #coords, confidence, classes.... reversed for some reason? But actually helpful since plate is cls 2
-                    x1 = int(xyxy[0])
-                    x2 = int(xyxy[2])
-                    y1 = int(xyxy[1])
-                    y2 = int(xyxy[3])
+                    x1, y1, x2, y2 = xyxy
 
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
 
-                    if int(cls) == 2: # license plate
+
+                    if int(cls) == 3: #truck cropping (future development; requires retraining with a truck class)
+                        img_crops = img_crops[y1:y2, x1:x2]
+
+                    elif int(cls) == 2: # license plate
                         license_width = abs(int(x2 - x1))
                         px_ratio = license_width / 12   # number of pixels per inch as license plates are 12"
-                
-                        im_p = img_orig[y1:y2, x1:x2]
-                        #edges = cv2.Canny(im_p,100,200)
-                        gray = cv2.cvtColor(im_p,cv2.COLOR_RGB2GRAY)
-                        _,thresh = cv2.threshold(gray,5,255,cv2.THRESH_BINARY)
-                        contours,hierarchy = cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-                        cont = contours[0]
-                        x,y,w,h = cv2.boundingRect(cont)
-                        edges = gray[y:y+h,x:x+w]
-                        cv2.imwrite(f'{out_path}/{file_name}_p_edge.png', im_p)
+                        # im_p = img_crops[y1:y2, x1:x2]
+                        # cv2.imwrite(f'{out_path}/{file_name}_p_edge.png', im_p)
                     
                     elif int(cls) == 1: #handle
-                        im_h = img_orig[y1:y2, x1:x2]
-                        gray = cv2.cvtColor(im_h,cv2.COLOR_BGR2GRAY)
-                        _,thresh = cv2.threshold(gray,100,200,cv2.THRESH_BINARY)
-                        contours,hierarchy = cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-                        cont = contours[0]
-                        x,y,w,h = cv2.boundingRect(cont)
-                        canny = cv2.Canny(im_h, 100, 200)
-                        edges = gray[y:y+h,x:x+w]
+                        im_h = img_crops[y1:y2, x1:x2]
+                        print(f'handle y1,y2,x1,x2: {y1},{y2},{x1},{x2}')
+                        crop_coords['h'] = [y1,y2,x1,x2]
+
                         cv2.imwrite(f'{out_path}/{file_name}_h_edge.png', im_h)
                         
-                        
                     elif int(cls) == 0: #tailgate
-                        im_t = img_orig[y1:y2, x1:x2]
-                        gray = cv2.cvtColor(im_t,cv2.COLOR_BGR2GRAY)
-                        _,thresh = cv2.threshold(gray.copy(),100,200,cv2.THRESH_BINARY)
-                        contours,hierarchy = cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-                        cont = contours[0]
-                        x,y,w,h = cv2.boundingRect(cont)
-                        canny = cv2.Canny(im_h, 0, 200)
-                        edges = gray[y:y+h,x:x+w]
+                        im_t = img_crops[y1:y2, x1:x2]
+                        print(f'tailgate y1,y2,x1,x2: {y1},{y2},{x1},{x2}')
+                        crop_coords['tg'] = [y1,y2,x1,x2]
+
                         cv2.imwrite(f'{out_path}/{file_name}_t_edge.png', im_t)
 
                     if save_img or view_img:  # Add bbox to image
                         #label = '%s %.2f' % (names[int(cls)], conf) #confidence not needed
                         label = '%s ' % (names[int(cls)])
-                        #coord1, coord2, dim_label = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3, px_ratio=px_ratio)
+                        coord1, coord2, dim_label = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], 
+                                                                line_thickness=3, px_ratio=px_ratio)
                         
                         #get important points for line drawing
                         if int(cls) == 1 and int(abs(y1-y2)) < 175: #handle
-                            coord1, coord2, dim_label = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3, px_ratio=px_ratio)
+                            coord1, coord2, dim_label = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], 
+                                                                    line_thickness=3, px_ratio=px_ratio)
                             ymax = max(coord1[1], coord2[1])
                             handles_ymax.append(ymax)
 
@@ -185,7 +316,8 @@ def detect(save_img=False):
                             im_h = im0[coord1[0]:coord2[0], coord1[1]:coord2[1]]
                         
                         elif int(cls) == 0: #tailgate
-                            coord1, coord2, dim_label = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3, px_ratio=px_ratio)
+                            coord1, coord2, dim_label = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], 
+                                                                    line_thickness=3, px_ratio=px_ratio)
                             tailgate_xmin = min(coord1[0], coord2[0])
 
                             ymax = max(coord1[1], coord2[1])
@@ -201,41 +333,41 @@ def detect(save_img=False):
                             pass
                             
                 # added ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
-                for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
-                    hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
-                    closest_index = np.argmin(hyps) # gets index of closest point via hypotenuse
+                # for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
+                #     hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
+                #     closest_index = np.argmin(hyps) # gets index of closest point via hypotenuse
 
-                    if handle_mid[1] < tailgate_ythird_coord[closest_index][1]:
-                        min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax])
-                        start_point = (handle_mid[0], handles_ymax[i])
-                        end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg)
-                        cv2.line(im0, start_point, end_point, (100,100,0), 4)
-                        line_mid = int((start_point[1] + end_point[1])/2)
-                        label = f'Distance: {((end_point[1] - start_point[1]) / px_ratio):.4f}"'
-                        cv2.putText(im0, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
-                                    thickness=2, lineType=cv2.LINE_AA)
-
-                ### Previous ability to measure between bottom of handle and tailgate --- was not robust.
-                ### Keeping until determined not needed
-                # for i, (mid_point, max_point)  in enumerate(zip(handles_ymid, handles_ymax)):
-                #     print(f'\nmidpoint: {mid_point}')
-                #     min_y_dist = min([int(abs(mid_point - x)) for x in tailgate_ythird]) # gets min distance from handle midpoint to tailgate third
-                #     print(f'min y dist: {min_y_dist}')
-                #     print(f'tailgate third: {tailgate_ythird}')
-                #     min_dist_third = min([x for x in tailgate_ythird if abs(x - min_y_dist) in handles_ymid])
-                #     print(f'min_dist_third: {min_dist_third}')
-                #     if mid_point < min_dist_third: #handle mid point in top 1/3 of truck
-                #         min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax])
-                #         print(f'min_dist_tg {min_dist_tg}')
-                #         start_point = (handles_xmid[i], handles_ymax[i])
-                #         print(f'start point: {start_point}')
-                #         end_point = (handles_xmid[i], handles_ymax[i] + min_dist_tg)
-                #         print(f'end point: {end_point}')
+                #     if handle_mid[1] < tailgate_ythird_coord[closest_index][1]: # if midpoint of handle is in top 1/3 of tailgate
+                #         min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax]) # if multiple handles found, finds closest tailgate
+                #         start_point = (handle_mid[0], handles_ymax[i]) # start point for drawn line
+                #         end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg) # end point for drawn line
                 #         cv2.line(im0, start_point, end_point, (100,100,0), 4)
-                #         label = f'Distance: {min_dist_tg/300:.4f}"L'
-                #         line_mid = int((start_point[1] + end_point[1])/2)
+                #         line_mid = int((start_point[1] + end_point[1])/2) # mid point for text
+                #         label = f'Distance: {((end_point[1] - start_point[1]) / px_ratio):.4f}"'
                 #         cv2.putText(im0, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
                 #                     thickness=2, lineType=cv2.LINE_AA)
+
+        
+                
+
+                # function draws and labels the distance from bottom of handle to bottom of tailgate
+                # if handle in top 1/3 of tailgate
+                # returns the y coord of handle bottom if so, else returns False
+                adj_tailgate_top = draw_dist_btm_h_to_btm_t(img_crops, handle_mids, handles_ymax, tailgate_ythird_coord, px_ratio)
+
+                if adj_tailgate_top == False:
+                    pass
+
+            
+                #function gets the handle surrounded by transparency
+                transp_h = handle_masked(im_h, brightness, contrast)
+
+                transp_tg = tailgate_masked(im_t, brightness, contrast, (3,3))
+
+                final_image = final_truck(img_crops, transp_tg, transp_h, crop_coords['tg'], crop_coords['h'])
+
+                cv2.imwrite(f'{out_path}/{file_name}_transparency.png', final_image)
+
 
 
             # Print time (inference + NMS)
