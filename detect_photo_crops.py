@@ -154,7 +154,9 @@ def final_truck(image, transp_tg, transp_h, tg_coords, h_coords):
     h_y1, h_y2, h_x1, h_x2 = h_coords
 
     final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg
-    final_image[h_y1:h_y2, h_x1:h_x2] = transp_h
+
+    if transp_h:
+        final_image[h_y1:h_y2, h_x1:h_x2] = transp_h
 
     return final_image
 
@@ -265,7 +267,7 @@ def detect(save_img=False):
                 
                 # Write results
                 for *xyxy, conf, cls in reversed(det_sorted): #coords, confidence, classes.... reversed for some reason? But actually helpful since plate is cls 2
-                    x1, y1, x2, y2 = xyxy
+                    x1, y1, x2, y2 = int(xyxy[0]),int(xyxy[1]),int(xyxy[2]),int(xyxy[3])
 
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
@@ -283,8 +285,8 @@ def detect(save_img=False):
                         # cv2.imwrite(f'{out_path}/{file_name}_p_edge.png', im_p)
                     
                     elif int(cls) == 1: #handle
-                        im_h = img_crops[y1:y2, x1:x2]
                         print(f'handle y1,y2,x1,x2: {y1},{y2},{x1},{x2}')
+                        im_h = img_crops[y1:y2, x1:x2]
                         crop_coords['h'] = [y1,y2,x1,x2]
 
                         cv2.imwrite(f'{out_path}/{file_name}_h_edge.png', im_h)
@@ -355,12 +357,17 @@ def detect(save_img=False):
                 # returns the y coord of handle bottom if so, else returns False
                 adj_tailgate_top = draw_dist_btm_h_to_btm_t(img_crops, handle_mids, handles_ymax, tailgate_ythird_coord, px_ratio)
 
-                if adj_tailgate_top == False:
+                if adj_tailgate_top:
+                    if adj_tailgate_top > crop_coords['tg'][0]:
+                        crop_coords['tg'][0] = int(adj_tailgate_top)
+                        transp_h = handle_masked(im_h, brightness, contrast)
+                else:
+                    transp_h = 0
                     pass
 
             
                 #function gets the handle surrounded by transparency
-                transp_h = handle_masked(im_h, brightness, contrast)
+                
 
                 transp_tg = tailgate_masked(im_t, brightness, contrast, (3,3))
 
