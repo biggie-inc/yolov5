@@ -355,7 +355,8 @@ def detect(save_img=False):
                 # function draws and labels the distance from bottom of handle to bottom of tailgate
                 # if handle in top 1/3 of tailgate
                 # returns the y coord of handle bottom if so, else returns False
-                adj_tailgate_top = draw_dist_btm_h_to_btm_t(img_crops, handle_mids, handles_ymax, tailgate_ythird_coord, px_ratio)
+                adj_tailgate_top = draw_dist_btm_h_to_btm_t(img_crops, handle_mids, handles_ymax, 
+                                                            tailgates_ymax, tailgate_ythird_coord, px_ratio)
 
                 if adj_tailgate_top:
                     if adj_tailgate_top > crop_coords['tg'][0]:
