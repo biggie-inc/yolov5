@@ -134,7 +134,10 @@ def detect(save_img=False):
                         license_width = abs(int(xyxy[2]) - int(xyxy[0]))
                         px_ratio = license_width / 12   # number of pixels per inch as license plates are 12"
 
-                        dims_to_csv['ppi'] = px_ratio
+                        try:
+                            dims_to_csv['ppi'] = px_ratio
+                        except:
+                            dims_to_csv['ppi'] = 'nan'
 
                     if save_img or view_img:  # Add bbox to image
                         #label = '%s %.2f' % (names[int(cls)], conf) #confidence not needed
@@ -152,8 +155,12 @@ def detect(save_img=False):
                             
                             handle_img = img[:,coord1[0]:coord2[0], coord1[1]:coord2[1]]
 
-                            dims_to_csv['handle_width'] = int(abs(coord1[0] - coord2[0]))
-                            dims_to_csv['handle_height'] = int(abs(coord1[1] - coord2[1]))
+                            try:
+                                dims_to_csv['handle_width'] = int(abs(coord1[0] - coord2[0]))
+                                dims_to_csv['handle_height'] = int(abs(coord1[1] - coord2[1]))
+                            except:
+                                dims_to_csv['handle_width'] = 'nan'
+                                dims_to_csv['handle_height'] = 'nan'
                         
                         elif int(cls) == 0: #tailgate
                             tailgate_xmin = min(coord1[0], coord2[0])
@@ -168,9 +175,12 @@ def detect(save_img=False):
                             #tailgate_img = img[coord1[0]:coord2[0], coord1[1]:coord2[1]]
                             #
 
-                            dims_to_csv['tg_width'] = int(abs(coord1[0] - coord2[0]))
-                            dims_to_csv['tg_height'] = int(abs(coord1[1] - coord2[1]))
-
+                            try:
+                                dims_to_csv['tg_width'] = int(abs(coord1[0] - coord2[0]))
+                                dims_to_csv['tg_height'] = int(abs(coord1[1] - coord2[1]))
+                            except:
+                                dims_to_csv['tg_width'] = 'nan'
+                                dims_to_csv['tg_height'] = 'nan'
 
 
 
