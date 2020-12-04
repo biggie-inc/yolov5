@@ -198,6 +198,9 @@ def detect(save_img=False):
                 except:
                     dims_to_csv['handle_loc'] = 1
 
+
+                dims_to_csv['btm_h_to_btm_tg'] = int(abs(handles_ymax[0] - tailgates_ymax[0]))
+
                 ### Previous ability to measure between bottom of handle and tailgate --- was not robust.
                 ### Keeping until determined not needed
                 # for i, (mid_point, max_point)  in enumerate(zip(handles_ymid, handles_ymax)):
