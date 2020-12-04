@@ -148,7 +148,7 @@ def handle_masked(image, brightness, contrast):
 
 
 def final_truck(image, transp_tg, transp_h, tg_coords, h_coords):
-    final_image = image.copy()
+    final_image = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2RGBA)
 
     tg_y1, tg_y2, tg_x1, tg_x2  = tg_coords
     h_y1, h_y2, h_x1, h_x2 = h_coords
@@ -235,7 +235,7 @@ def detect(save_img=False):
 
             out_path = str(Path(out))    
             file_name = str(Path(p).name).split('.')[0] # gets name of file without extension
-            save_path = str(Path(out) / Path(p).name)
+            save_path = f"{Path(out)}/{Path(p).name}"
             txt_path = str(Path(out) / Path(p).stem) + ('_%g' % dataset.frame if dataset.mode == 'video' else '')
             s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
@@ -257,6 +257,8 @@ def detect(save_img=False):
                 px_ratio = 1
 
                 crop_coords = {}
+
+                csv_coords = {}
 
                 # Print results
                 for c in det[:, -1].unique():
