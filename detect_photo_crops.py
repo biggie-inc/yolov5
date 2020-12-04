@@ -315,7 +315,7 @@ def detect(save_img=False):
                             ymid = int((coord1[1] + coord2[1]) / 2)
                             handle_mids.append([xmid, ymid])
                             
-                            im_h = im0[coord1[0]:coord2[0], coord1[1]:coord2[1]]
+                            #im_h = im0[coord1[0]:coord2[0], coord1[1]:coord2[1]]
                         
                         elif int(cls) == 0: #tailgate
                             coord1, coord2, dim_label = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], 
@@ -329,7 +329,7 @@ def detect(save_img=False):
                             tailgate_ythird = int(abs(coord1[1]-coord2[1])/3+ymin)
                             tailgate_ythird_coord.append([tailgate_xmin, tailgate_ythird])
 
-                            im_t = img[coord1[0]:coord2[0], coord1[1]:coord2[1]]
+                            #im_t = img[coord1[0]:coord2[0], coord1[1]:coord2[1]]
                         
                         else:
                             pass
