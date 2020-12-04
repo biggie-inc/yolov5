@@ -12,6 +12,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import numpy as np
 from numpy import random
+import pandas as pd
 
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
@@ -219,8 +220,8 @@ def detect(save_img=False):
                 #         cv2.putText(im0, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
                 #                     thickness=2, lineType=cv2.LINE_AA)
 
-
-            dims_to_csv.to_csv('./tailgate_dimensions.csv', sep=',', mode='a')
+            dims_df = pd.DataFrame(dims_to_csv, index=[0])
+            dims_df.to_csv('./tailgate_dimensions.csv', sep=',', mode='a', header=False)
 
             # Print time (inference + NMS)
             print('%sDone. (%.3fs)' % (s, t2 - t1))
@@ -254,7 +255,7 @@ def detect(save_img=False):
             os.system('open ' + save_path)
 
     print('Done. (%.3fs)' % (time.time() - t0))
-    return tailgate_img, handle_img
+    # return tailgate_img, handle_img
 
 
 if __name__ == '__main__':
