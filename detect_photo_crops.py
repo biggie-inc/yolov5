@@ -359,8 +359,10 @@ def detect(save_img=False):
                                                             tailgates_ymax, tailgate_ythird_coord, px_ratio)
 
                 if adj_tailgate_top:
-                    if adj_tailgate_top > crop_coords['tg'][0][0]:
-                        crop_coords['tg'][0][0] = int(adj_tailgate_top)
+                    print(adj_tailgate_top)
+                    print(crop_coords['tg'][0])
+                    if adj_tailgate_top > crop_coords['tg'][0]:
+                        crop_coords['tg'][0] = int(adj_tailgate_top)
                         transp_h = handle_masked(im_h, brightness, contrast)
                 else:
                     transp_h = 0
@@ -372,7 +374,7 @@ def detect(save_img=False):
 
                 transp_tg = tailgate_masked(im_t, brightness, contrast, (3,3))
 
-                final_image = final_truck(img_crops, transp_tg, transp_h, crop_coords['tg'][0], crop_coords['h'][0])
+                final_image = final_truck(img_crops, transp_tg, transp_h, crop_coords['tg'], crop_coords['h'])
 
                 cv2.imwrite(f'{out_path}/{file_name}_transparency.png', final_image)
 
