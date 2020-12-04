@@ -73,7 +73,7 @@ def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, t
             label = f'Distance: {((end_point[1] - start_point[1]) / px_ratio):.4f}"'
             cv2.putText(image, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
                         thickness=2, lineType=cv2.LINE_AA)
-            return start_point
+            return start_point[1]
         else:
             return False
 
@@ -365,7 +365,7 @@ def detect(save_img=False):
                         crop_coords['tg'][0] = int(adj_tailgate_top)
                         transp_h = handle_masked(im_h, brightness, contrast)
                 else:
-                    transp_h = 0
+                    transp_h = False
                     pass
 
             
