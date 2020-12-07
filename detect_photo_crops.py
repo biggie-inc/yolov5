@@ -60,6 +60,7 @@ def auto_canny(gray_image, sigma=0.66):
 
 def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, tailgate_ythird_coord, px_ratio):
 #  ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
+    drawn_image = image.copy()
     for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
         hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
         closest_index = np.argmin(hyps) # gets index of closest point via hypotenuse
@@ -68,25 +69,31 @@ def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, t
             min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax]) # if multiple handles found, finds closest tailgate
             start_point = (handle_mid[0], handles_ymax[i]) # start point for drawn line
             end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg) # end point for drawn line
-            cv2.line(image, start_point, end_point, (100,100,0), 4)
+            cv2.line(drawn_image, start_point, end_point, (100,100,0), 4)
             line_mid = int((start_point[1] + end_point[1])/2) # mid point for text
             label = f'Distance: {((end_point[1] - start_point[1]) / px_ratio):.4f}"'
-            cv2.putText(image, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
+            cv2.putText(drawn_image, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
                         thickness=2, lineType=cv2.LINE_AA)
             return start_point[1]
         else:
             return False
 
 def tailgate_masked(image, brightness, contrast, kernel):
-    contrast = apply_brightness_contrast(image.copy(), brightness=brightness, contrast=contrast)
+    gamma = adjust_gamma(image.copy())
+    contrast = apply_brightness_contrast(gamma, brightness=brightness, contrast=contrast)
+    # cv2.imwrite('./inference/0contrast.png', contrast)
     bilat = cv2.bilateralFilter(contrast.copy(),9,75,75)  #gaussian blur faster than bilateralFilter
+    # cv2.imwrite('./inference/1bilat.png', bilat)
 
     edges = auto_canny(bilat)
+    # cv2.imwrite('./inference/3edges.png', edges)
 
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,kernel) 
     dilated = cv2.dilate(edges.copy(), kernel) #dilating edges to connect segments
+    # cv2.imwrite('./inference/4dilated.png', dilated)
 
     edges2 = auto_canny(dilated.copy()) #getting edges of dilated image
+    # cv2.imwrite('./inference/5edges2.png', edges2)
 
     cnts, _ = cv2.findContours(edges2.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
@@ -98,8 +105,10 @@ def tailgate_masked(image, brightness, contrast, kernel):
     BGRA = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2BGRA)
 
     masked = cv2.drawContours(BGRA.copy(), [hull], -1, (0,0,0,0), -1)
+    # cv2.imwrite('./inference/6masked.png', masked)
 
     masked_image = cv2.bitwise_and(BGRA, masked)
+    # cv2.imwrite('./inference/7masked2BGRA.png', masked_image)
 
     # fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15,10))
     # ax1.imshow(drawn_ctrs)
@@ -110,13 +119,28 @@ def tailgate_masked(image, brightness, contrast, kernel):
 
     return masked_image
 
+def adjust_gamma(image, gamma=1.2):
+    # build a lookup table mapping the pixel values [0, 255] to
+    # their adjusted gamma values
+    invGamma = 1.0 / gamma
+    table = np.array([((i / 255.0) ** invGamma) * 255
+        for i in np.arange(0, 256)]).astype("uint8")
+
+    # apply gamma correction using the lookup table
+    return cv2.LUT(image, table)
 
 def handle_masked(image, brightness, contrast):
+    gamma = adjust_gamma(image.copy())
+    # cv2.imwrite('./inference/00gamma.png', gamma)
     # This function needs to use whatever bright/contrast levels for the tg
-    adjusted = apply_brightness_contrast(image.copy(), brightness=brightness, contrast=contrast)
+    adjusted = apply_brightness_contrast(gamma, brightness=brightness, contrast=contrast)
+    # cv2.imwrite('./inference/0contrast.png', adjusted)
+
     bilat = cv2.bilateralFilter(adjusted.copy(),9,75,75)  #gaussian blur faster than bilateralFilter
-    
+    # cv2.imwrite('./inference/1bilat.png', bilat)
+
     edges = auto_canny(bilat.copy())
+    # cv2.imwrite('./inference/3edges.png', edges)
 
     # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)) 
     # dilated = cv2.dilate(edges.copy(), kernel) #dilating edges to connect segments
@@ -132,10 +156,13 @@ def handle_masked(image, brightness, contrast):
 
     BGRA = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2RGBA)
 
-    mask = np.zeros(BGRA.shape, BGRA.dtype)
-    cv2.fillPoly(mask, [hull], (255,)*BGRA.shape[2], )
+    masked = np.zeros(BGRA.shape, BGRA.dtype)
+    # cv2.imwrite('./inference/6masked.png', masked)
 
-    masked_image = cv2.bitwise_and(BGRA, mask)
+    cv2.fillPoly(masked, [hull], (255,)*BGRA.shape[2], )
+
+    masked_image = cv2.bitwise_and(BGRA, masked)
+    # cv2.imwrite('./inference/7masked2BGRA.png', masked_image)
 
     # fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15,10))
     # ax1.imshow(drawn_ctrs)
@@ -147,13 +174,29 @@ def handle_masked(image, brightness, contrast):
     return masked_image
 
 
-def final_truck(image, transp_tg, transp_h, tg_coords, h_coords):
+def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust):
     final_image = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2RGBA)
+
+    print(f'tg coords: {tg_coords}')
+    print(f'h coords: {h_coords}')
+    print(f'final image shape: {final_image.shape}')
+    print(f'transp_tg image shape: {transp_tg.shape}')
+
+    cv2.imwrite('./inference/image_input.png', final_image)
+    cv2.imwrite('./inference/transp_tg.png', transp_tg)
+    cv2.imwrite('./inference/transp_h.png', transp_h)
 
     tg_y1, tg_y2, tg_x1, tg_x2  = tg_coords
     h_y1, h_y2, h_x1, h_x2 = h_coords
 
-    final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg
+    print(f'diff adjust: {diff_adjust}')
+
+    if diff_adjust:
+        
+        final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg[diff_adjust:,:,:]
+    else:
+        final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg
+
 
     if transp_h:
         final_image[h_y1:h_y2, h_x1:h_x2] = transp_h
@@ -257,8 +300,6 @@ def detect(save_img=False):
                 px_ratio = 1
 
                 crop_coords = {}
-
-                csv_coords = {}
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -364,19 +405,24 @@ def detect(save_img=False):
                     print(adj_tailgate_top)
                     print(crop_coords['tg'][0])
                     if adj_tailgate_top > crop_coords['tg'][0]:
+                        # This all affects final_tailgate()
+                        crop_coords['diff_adjust'] = \
+                            int(adj_tailgate_top - crop_coords['tg'][0])
                         crop_coords['tg'][0] = int(adj_tailgate_top)
-                        transp_h = handle_masked(im_h, brightness, contrast)
+                        print(crop_coords['diff_adjust'])
+                        transp_h = False
                 else:
-                    transp_h = False
+                    transp_h = handle_masked(im_h, brightness, contrast)
                     pass
 
             
                 #function gets the handle surrounded by transparency
                 
 
-                transp_tg = tailgate_masked(im_t, brightness, contrast, (3,3))
+                transp_tg = tailgate_masked(im_t, brightness, contrast, (5,5))
 
-                final_image = final_truck(img_crops, transp_tg, transp_h, crop_coords['tg'], crop_coords['h'])
+                final_image = final_truck(img_crops, transp_tg, transp_h, 
+                                            crop_coords['tg'], crop_coords['h'], crop_coords['diff_adjust'])
 
                 cv2.imwrite(f'{out_path}/{file_name}_transparency.png', final_image)
 
