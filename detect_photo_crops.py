@@ -377,23 +377,6 @@ def detect(save_img=False):
                         else:
                             pass
                             
-                # added ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
-                # for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
-                #     hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
-                #     closest_index = np.argmin(hyps) # gets index of closest point via hypotenuse
-
-                #     if handle_mid[1] < tailgate_ythird_coord[closest_index][1]: # if midpoint of handle is in top 1/3 of tailgate
-                #         min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax]) # if multiple handles found, finds closest tailgate
-                #         start_point = (handle_mid[0], handles_ymax[i]) # start point for drawn line
-                #         end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg) # end point for drawn line
-                #         cv2.line(im0, start_point, end_point, (100,100,0), 4)
-                #         line_mid = int((start_point[1] + end_point[1])/2) # mid point for text
-                #         label = f'Distance: {((end_point[1] - start_point[1]) / px_ratio):.4f}"'
-                #         cv2.putText(im0, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
-                #                     thickness=2, lineType=cv2.LINE_AA)
-
-        
-                
 
                 # function draws and labels the distance from bottom of handle to bottom of tailgate
                 # if handle in top 1/3 of tailgate
@@ -409,7 +392,6 @@ def detect(save_img=False):
                         crop_coords['diff_adjust'] = \
                             int(adj_tailgate_top - crop_coords['tg'][0])
                         crop_coords['tg'][0] = int(adj_tailgate_top)
-                        print(crop_coords['diff_adjust'])
                         transp_h = False
                 else:
                     transp_h = handle_masked(im_h, brightness, contrast)
