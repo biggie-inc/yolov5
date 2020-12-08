@@ -375,13 +375,14 @@ def detect(save_img=False):
                             #im_t = img[coord1[0]:coord2[0], coord1[1]:coord2[1]]
                         
                         else:
+                            print('\nno objects detected')
                             pass
                             
 
                 # function draws and labels the distance from bottom of handle to bottom of tailgate
                 # if handle in top 1/3 of tailgate
                 # returns the y coord of handle bottom if so, else returns False
-                adj_tailgate_top = draw_dist_btm_h_to_btm_t(img_crops, handle_mids, handles_ymax, 
+                adj_tailgate_top = draw_dist_btm_h_to_btm_t(im0, handle_mids, handles_ymax, 
                                                             tailgates_ymax, tailgate_ythird_coord, px_ratio)
 
                 if adj_tailgate_top:
@@ -399,8 +400,6 @@ def detect(save_img=False):
 
             
                 #function gets the handle surrounded by transparency
-                
-
                 transp_tg = tailgate_masked(im_t, brightness, contrast, (5,5))
 
                 final_image = final_truck(img_crops, transp_tg, transp_h, 
