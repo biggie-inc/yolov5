@@ -310,6 +310,9 @@ def detect(save_img=False):
 
                 det_sorted = sorted(det, key=lambda x: x[-1]) # sort detected items by last index which is class
                 
+                print(len(det_sorted))
+                print(det_sorted)
+
                 if len(det_sorted) < 1:
                     print('\nNo Objects Detected')
 
