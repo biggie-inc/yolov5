@@ -1,4 +1,5 @@
 import argparse
+from math import e
 import os
 import platform
 import shutil
@@ -60,22 +61,23 @@ def auto_canny(gray_image, sigma=0.66):
 
 def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, tailgate_ythird_coord, px_ratio):
 #  ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
-    drawn_image = image.copy()
     for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
         hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
         closest_index = np.argmin(hyps) # gets index of closest point via hypotenuse
 
         if handle_mid[1] < tailgate_ythird_coord[closest_index][1]: # if midpoint of handle is in top 1/3 of tailgate
+            print('\nHandle in top 1/3')
             min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax]) # if multiple handles found, finds closest tailgate
             start_point = (handle_mid[0], handles_ymax[i]) # start point for drawn line
             end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg) # end point for drawn line
-            cv2.line(drawn_image, start_point, end_point, (100,100,0), 4)
+            cv2.line(image, start_point, end_point, (100,100,0), 4)
             line_mid = int((start_point[1] + end_point[1])/2) # mid point for text
             label = f'Distance: {((end_point[1] - start_point[1]) / px_ratio):.4f}"'
-            cv2.putText(drawn_image, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
+            cv2.putText(image, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
                         thickness=2, lineType=cv2.LINE_AA)
             return start_point[1]
         else:
+            print('\nHandle in lower 2/3rds')
             return False
 
 def tailgate_masked(image, brightness, contrast, kernel):
@@ -308,6 +310,9 @@ def detect(save_img=False):
 
                 det_sorted = sorted(det, key=lambda x: x[-1]) # sort detected items by last index which is class
                 
+                if len(det_sorted) < 1:
+                    print('\nNo Objects Detected')
+
                 # Write results
                 for *xyxy, conf, cls in reversed(det_sorted): #coords, confidence, classes.... reversed for some reason? But actually helpful since plate is cls 2
                     x1, y1, x2, y2 = int(xyxy[0]),int(xyxy[1]),int(xyxy[2]),int(xyxy[3])
@@ -373,10 +378,10 @@ def detect(save_img=False):
                             tailgate_ythird_coord.append([tailgate_xmin, tailgate_ythird])
 
                             #im_t = img[coord1[0]:coord2[0], coord1[1]:coord2[1]]
-                        
+
                         else:
-                            print('\nno objects detected')
                             pass
+                            
                             
 
                 # function draws and labels the distance from bottom of handle to bottom of tailgate
