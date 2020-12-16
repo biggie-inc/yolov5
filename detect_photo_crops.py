@@ -21,6 +21,17 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 
 
+def adjust_gamma(image, gamma=1.2):
+    # build a lookup table mapping the pixel values [0, 255] to
+    # their adjusted gamma values
+    invGamma = 1.0 / gamma
+    table = np.array([((i / 255.0) ** invGamma) * 255
+        for i in np.arange(0, 256)]).astype("uint8")
+
+    # apply gamma correction using the lookup table
+    return cv2.LUT(image, table)
+
+
 def apply_brightness_contrast(input_img, brightness = 0, contrast = 0):
     
     if brightness != 0:
@@ -47,14 +58,14 @@ def apply_brightness_contrast(input_img, brightness = 0, contrast = 0):
     return buf
 
 
-def auto_canny(gray_image, sigma=0.66):
+def auto_canny(image, sigma=0.66):
     #compute median of single channel pixel intentsities
-    med = np.median(gray_image)
+    med = np.median(image)
 
     #apply automatic canny edge detection using median and sigma
     lower = int(max(0, (1.0-sigma)*med))
     upper = int(min(255, (1.0+sigma)*med))
-    edged = cv2.Canny(gray_image, lower, upper)
+    edged = cv2.Canny(image, lower, upper)
 
     return edged
 
@@ -121,16 +132,6 @@ def tailgate_masked(image, brightness, contrast, kernel):
 
     return masked_image
 
-def adjust_gamma(image, gamma=1.2):
-    # build a lookup table mapping the pixel values [0, 255] to
-    # their adjusted gamma values
-    invGamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** invGamma) * 255
-        for i in np.arange(0, 256)]).astype("uint8")
-
-    # apply gamma correction using the lookup table
-    return cv2.LUT(image, table)
-
 def handle_masked(image, brightness, contrast):
     gamma = adjust_gamma(image.copy())
     # cv2.imwrite('./inference/00gamma.png', gamma)
@@ -194,13 +195,11 @@ def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust):
     print(f'diff adjust: {diff_adjust}')
 
     if diff_adjust:
-        
         final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg[diff_adjust:,:,:]
     else:
         final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg
 
-
-    if transp_h:
+    if type(transp_h)==np.ndarray:
         final_image[h_y1:h_y2, h_x1:h_x2] = transp_h
 
     return final_image
@@ -309,12 +308,6 @@ def detect(save_img=False):
                     s += '%g %ss, ' % (n, names[int(c)])  # add to string
 
                 det_sorted = sorted(det, key=lambda x: x[-1]) # sort detected items by last index which is class
-                
-                print(len(det_sorted))
-                print(det_sorted)
-
-                if len(det_sorted) < 1:
-                    print('\nNo Objects Detected')
 
                 # Write results
                 for *xyxy, conf, cls in reversed(det_sorted): #coords, confidence, classes.... reversed for some reason? But actually helpful since plate is cls 2
@@ -403,6 +396,7 @@ def detect(save_img=False):
                         crop_coords['tg'][0] = int(adj_tailgate_top)
                         transp_h = False
                 else:
+                    crop_coords['diff_adjust'] = False
                     transp_h = handle_masked(im_h, brightness, contrast)
                     pass
 
@@ -415,6 +409,8 @@ def detect(save_img=False):
 
                 cv2.imwrite(f'{out_path}/{file_name}_transparency.png', final_image)
 
+            else:
+                print('\nNo Objects Detected')
 
 
             # Print time (inference + NMS)
