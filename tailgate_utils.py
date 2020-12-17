@@ -235,3 +235,142 @@ def tailgate_detect_and_mask(image):
                 pass
     full_process.append('tailgate not found')
     print(f'full tailgate process [ {(" -> ").join(full_process)} ]')
+
+
+def handle_detect_and_mask(image):
+
+    image_area = image.shape[0] * image.shape[1]
+    mode_of_image = get_mode(image.copy())
+
+    full_process = [f'mode of image: {mode_of_image}']
+
+    if mode_of_image > 125:
+        first_range_tens = np.arange(0,-111, -10)
+        full_process.append('darken process')
+    elif mode_of_image < 125:
+        first_range_tens = np.arange(0,111, 10)
+        full_process.append('lighten process')
+
+    second_range_tens = np.arange(0,111, 10)
+   
+
+    for i in first_range_tens:
+        for j in second_range_tens:
+            
+            #adapted = adaptive_histogram(image.copy())
+            #bilat = cv2.bilateralFilter(image.copy(),9,75,75)
+            adjusted = apply_brightness_contrast(image.copy(), brightness=i, contrast=j)
+            bilat = cv2.bilateralFilter(adjusted.copy(),11,75,75)
+
+            edges = layered_edge_detection(adjusted.copy())
+            sorted_contours = get_contours(edges)
+
+            if len(sorted_contours) > 0:
+                max_contour = sorted_contours[0] #largest contour (hopefully the tailgate)
+
+                if cv2.contourArea(max_contour) > int(image_area*.4):
+                    print(f'area of max contour: {cv2.contourArea(max_contour)}')
+                    print(f'.4 * image area: {int(image_area*.4)}')
+                    print(f'image area: {image_area}')
+                    full_process.append('contour > 40% of area')
+
+                    hull = cv2.convexHull(max_contour)
+
+                    drawn_ctrs = cv2.drawContours(adjusted.copy(), [hull], -1, (0, 255, 0), 2)
+
+                    masked_image = transparent_handle_mask(image, hull)
+                    full_process.append('masked')
+
+                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
+                    ax1.imshow(image)
+                    ax1.axis('off')
+                    ax2.imshow(masked_image)
+                    ax2.axis('off')
+                    plt.tight_layout();
+                    
+                    print(f'full process [ {(" -> ").join(full_process)} ]')
+
+                    return masked_image
+
+                elif cv2.contourArea(max_contour) < int(image_area*.40) \
+                and len(sorted_contours) > 1:
+                    if (cv2.contourArea(sorted_contours[0]) + 
+                        cv2.contourArea(sorted_contours[1])) > int(image_area*.4):
+                        full_process.append('contours added > 40% of area')
+
+                        concat = np.concatenate((sorted_contours[0],sorted_contours[1]), axis=0)
+
+                        hull = cv2.convexHull(concat)
+
+                        # drawn_ctrs = cv2.drawContours(contrast.copy(), [hull], -1, (0, 255, 0), 2)
+
+                        masked_image = transparent_handle_mask(image, hull)
+                        full_process.append('masked')
+
+                        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
+                        ax1.imshow(image)
+                        ax1.axis('off')
+                        ax2.imshow(masked_image)
+                        ax2.axis('off')
+                        plt.tight_layout();
+
+                        print(f'full process [ {(" -> ").join(full_process)} ]')
+
+                        return masked_image
+
+                elif cv2.contourArea(max_contour) < int(image_area*.4):
+                    sorted_contours2 = contours_from_edges_on_contours(image.copy(), sorted_contours)
+                    
+                    if cv2.contourArea(sorted_contours2[0]) > int(image_area*.4):
+                        full_process.append('contour of contour > 40% of area')
+
+                        hull = cv2.convexHull(sorted_contours2[0])
+
+                        drawn_ctrs = cv2.drawContours(adjusted.copy(), [hull], -1, (0, 255, 0), 2)
+
+                        masked_image = transparent_handle_mask(image, hull)
+                        full_process.append('masked')
+
+                        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
+                        ax1.imshow(image)
+                        ax1.axis('off')
+                        ax2.imshow(masked_image)
+                        ax2.axis('off')
+                        plt.tight_layout();
+                        
+                        print(f'full process [ {(" -> ").join(full_process)} ]')
+
+                        return masked_image
+                    
+                    elif cv2.contourArea(sorted_contours2[0]) < int(image_area*.4) \
+                    and len(sorted_contours2) > 1:
+                        if (cv2.contourArea(sorted_contours2[0]) + 
+                            cv2.contourArea(sorted_contours2[1])) > int(image_area*.4):
+                            full_process.append('contour of contours added together > 40% of area')
+
+                            concat = np.concatenate((sorted_contours2[0],sorted_contours2[1]), axis=0)
+
+                            hull = cv2.convexHull(concat)
+
+                            # drawn_ctrs = cv2.drawContours(contrast.copy(), [hull], -1, (0, 255, 0), 2)
+
+                            masked_image = transparent_handle_mask(image, hull)
+                            full_process.append('masked')
+
+                            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
+                            ax1.imshow(image)
+                            ax1.axis('off')
+                            ax2.imshow(masked_image)
+                            ax2.axis('off')
+                            plt.tight_layout();
+
+                            print(f'full process [ {(" -> ").join(full_process)} ]')
+
+                            return masked_image
+                else:
+                    pass
+            else:
+                pass
+    print(f'brightness {i} | contrast {j}')
+    full_process.append('handle not found')
+    print(f'full handle process [ {(" -> ").join(full_process)} ]')

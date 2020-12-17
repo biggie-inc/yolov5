@@ -55,49 +55,49 @@ def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, t
             return False
 
 
-def handle_masked(image, brightness, contrast):
-    gamma = adjust_gamma(image.copy())
-    # cv2.imwrite('./inference/00gamma.png', gamma)
-    # This function needs to use whatever bright/contrast levels for the tg
-    adjusted = apply_brightness_contrast(gamma, brightness=brightness, contrast=contrast)
-    # cv2.imwrite('./inference/0contrast.png', adjusted)
+# def handle_masked(image, brightness, contrast):
+#     gamma = adjust_gamma(image.copy())
+#     # cv2.imwrite('./inference/00gamma.png', gamma)
+#     # This function needs to use whatever bright/contrast levels for the tg
+#     adjusted = apply_brightness_contrast(gamma, brightness=brightness, contrast=contrast)
+#     # cv2.imwrite('./inference/0contrast.png', adjusted)
 
-    bilat = cv2.bilateralFilter(adjusted.copy(),9,75,75)  #gaussian blur faster than bilateralFilter
-    # cv2.imwrite('./inference/1bilat.png', bilat)
+#     bilat = cv2.bilateralFilter(adjusted.copy(),9,75,75)  #gaussian blur faster than bilateralFilter
+#     # cv2.imwrite('./inference/1bilat.png', bilat)
 
-    edges = auto_canny(bilat.copy())
-    # cv2.imwrite('./inference/3edges.png', edges)
+#     edges = auto_canny(bilat.copy())
+#     # cv2.imwrite('./inference/3edges.png', edges)
 
-    # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)) 
-    # dilated = cv2.dilate(edges.copy(), kernel) #dilating edges to connect segments
+#     # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)) 
+#     # dilated = cv2.dilate(edges.copy(), kernel) #dilating edges to connect segments
 
-    # edges5 = cv2.Canny(dilated.copy(), 100, 200) #getting edges of dilated image
+#     # edges5 = cv2.Canny(dilated.copy(), 100, 200) #getting edges of dilated image
 
-    cnts, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+#     cnts, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
-    max_contour = max(cnts, key=cv2.contourArea) #largest contour (hopefully the handle)
-    hull = cv2.convexHull(max_contour)
+#     max_contour = max(cnts, key=cv2.contourArea) #largest contour (hopefully the handle)
+#     hull = cv2.convexHull(max_contour)
 
-    # drawn_ctrs = cv2.drawContours(image.copy(), [hull], -1, (0, 255, 0), 1) #can be removed, just for show
+#     # drawn_ctrs = cv2.drawContours(image.copy(), [hull], -1, (0, 255, 0), 1) #can be removed, just for show
 
-    BGRA = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2BGRA)
+#     BGRA = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2BGRA)
 
-    masked = np.zeros(BGRA.shape, BGRA.dtype)
-    # cv2.imwrite('./inference/6masked.png', masked)
+#     masked = np.zeros(BGRA.shape, BGRA.dtype)
+#     # cv2.imwrite('./inference/6masked.png', masked)
 
-    cv2.fillPoly(masked, [hull], (255,)*BGRA.shape[2], )
+#     cv2.fillPoly(masked, [hull], (255,)*BGRA.shape[2], )
 
-    masked_image = cv2.bitwise_and(BGRA, masked)
-    # cv2.imwrite('./inference/7masked2BGRA.png', masked_image)
+#     masked_image = cv2.bitwise_and(BGRA, masked)
+#     # cv2.imwrite('./inference/7masked2BGRA.png', masked_image)
 
-    # fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15,10))
-    # ax1.imshow(drawn_ctrs)
-    # ax1.axis('off')
-    # ax2.imshow(masked_image)
-    # ax2.axis('off')
-    # plt.tight_layout();
+#     # fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15,10))
+#     # ax1.imshow(drawn_ctrs)
+#     # ax1.axis('off')
+#     # ax2.imshow(masked_image)
+#     # ax2.axis('off')
+#     # plt.tight_layout();
 
-    return masked_image
+#     return masked_image
 
 
 def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust):
@@ -320,7 +320,7 @@ def detect(save_img=False):
                         transp_h = False
                 else:
                     crop_coords['diff_adjust'] = False
-                    transp_h = handle_masked(im_h, brightness, contrast)
+                    transp_h = handle_detect_and_mask(im_h)
                     pass
 
             
