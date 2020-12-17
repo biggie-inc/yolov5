@@ -1,5 +1,5 @@
 from scipy.stats import mode
-import opencv as cv2
+import cv2
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -104,7 +104,7 @@ def tailgate_detect_and_mask(image):
 
     full_process = [f'mode of image: {mode_of_image}']
 
-    if mode_of_image > 125:
+    if mode_of_image >= 125:
         first_range_tens = np.arange(0,-111, -10)
         full_process.append('darken process')
     elif mode_of_image < 125:
