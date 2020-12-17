@@ -2,7 +2,7 @@ from scipy.stats import mode
 import opencv as cv2
 import numpy as np
 import pandas as pd
-impoort matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 def get_mode(color_image):
     grayscale = cv2.cvtColor(color_image.copy(), cv2.COLOR_BGR2GRAY)
@@ -89,7 +89,7 @@ def border_process(bilat_image):
     return cropped
 
 
-def transparent_mask(orig_image, hull):
+def transparent_tailgate_mask(orig_image, hull):
     BGRA = cv2.cvtColor(orig_image.copy(), cv2.COLOR_BGR2BGRA)
     masked = cv2.drawContours(BGRA.copy(), [hull], -1, (0,0,0,0), -1)
 
@@ -131,7 +131,7 @@ def tailgate_detect_and_mask(image):
 
                     drawn_ctrs = cv2.drawContours(contrast.copy(), [hull], -1, (0, 255, 0), 2)
 
-                    masked_image = transparent_mask(image, hull)
+                    masked_image = transparent_tailgate_mask(image, hull)
                     full_process.append('masked')
 
                     # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
@@ -156,7 +156,7 @@ def tailgate_detect_and_mask(image):
 
                         # drawn_ctrs = cv2.drawContours(contrast.copy(), [hull], -1, (0, 255, 0), 2)
 
-                        masked_image = transparent_mask(image, hull)
+                        masked_image = transparent_tailgate_mask(image, hull)
                         full_process.append('masked')
 
                         # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
@@ -192,7 +192,7 @@ def tailgate_detect_and_mask(image):
 
                     drawn_ctrs = cv2.drawContours(contrast.copy(), [hull], -1, (0, 255, 0), 2)
 
-                    masked_image = transparent_mask(image, hull)
+                    masked_image = transparent_tailgate_mask(image, hull)
                     full_process.append('masked')
 
                     # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
@@ -217,7 +217,7 @@ def tailgate_detect_and_mask(image):
 
                         # drawn_ctrs = cv2.drawContours(contrast.copy(), [hull], -1, (0, 255, 0), 2)
 
-                        masked_image = transparent_mask(image, hull)
+                        masked_image = transparent_tailgate_mask(image, hull)
                         full_process.append('masked')
 
                         # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
@@ -234,4 +234,4 @@ def tailgate_detect_and_mask(image):
             else:
                 pass
     full_process.append('tailgate not found')
-    print(f'full process [ {(" -> ").join(full_process)} ]')
+    print(f'full tailgate process [ {(" -> ").join(full_process)} ]')
