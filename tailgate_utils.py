@@ -73,6 +73,18 @@ def get_contours(edged_image):
     return sorted_contours
 
 
+def contours_from_edges_on_contours(image, sorted_contours):
+    drawn_ctrs = cv2.drawContours(image.copy(), sorted_contours, -1, (0, 255, 0), 2) 
+
+    edges3 = auto_canny(drawn_ctrs.copy())
+
+    cntrs2, _ = cv2.findContours(edges3.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+    sorted_contours2 = sorted(cntrs2, key=cv2.contourArea)
+
+    return sorted_contours2
+
+
 def add_border(truck_image):
     bordered_image = cv2.copyMakeBorder(truck_image, 2,2,2,2, cv2.BORDER_CONSTANT, value=(0,255,0))
     return bordered_image
@@ -97,6 +109,17 @@ def transparent_tailgate_mask(orig_image, hull):
     return masked_image
 
 
+def transparent_handle_mask(orig_image, hull):
+    BGRA = cv2.cvtColor(orig_image.copy(), cv2.COLOR_BGR2BGRA)
+    mask = np.zeros(BGRA.shape, BGRA.dtype)
+
+    cv2.fillPoly(mask, [hull], (255,)*BGRA.shape[2], )
+
+    masked_image = cv2.bitwise_and(BGRA, mask)
+
+    return masked_image
+
+
 def tailgate_detect_and_mask(image):
 
     image_area = image.shape[0] * image.shape[1]
@@ -107,7 +130,7 @@ def tailgate_detect_and_mask(image):
     if mode_of_image >= 125:
         first_range_tens = np.arange(0,-111, -10)
         full_process.append('darken process')
-    elif mode_of_image < 125:
+    else:
         first_range_tens = np.arange(0,111, 10)
         full_process.append('lighten process')
 
@@ -244,10 +267,10 @@ def handle_detect_and_mask(image):
 
     full_process = [f'mode of image: {mode_of_image}']
 
-    if mode_of_image > 125:
+    if mode_of_image >= 125:
         first_range_tens = np.arange(0,-111, -10)
         full_process.append('darken process')
-    elif mode_of_image < 125:
+    else:
         first_range_tens = np.arange(0,111, 10)
         full_process.append('lighten process')
 
