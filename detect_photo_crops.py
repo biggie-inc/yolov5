@@ -57,7 +57,7 @@ def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, t
 
 
 def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust):
-    final_image = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2RGBA)
+    final_image = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2BGRA)
 
     print(f'tg coords: {tg_coords}')
     print(f'h coords: {h_coords}')
