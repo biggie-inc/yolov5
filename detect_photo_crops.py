@@ -1,4 +1,5 @@
 import argparse
+from math import e
 import os
 import platform
 import shutil
@@ -18,106 +19,8 @@ from utils.general import (
     xyxy2xywh, plot_one_box, strip_optimizer, set_logging, hypotenuse)
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
+from tailgate_utils import *
 
-
-def apply_brightness_contrast(input_img, brightness = 0, contrast = 0):
-    
-    if brightness != 0:
-        if brightness > 0:
-            shadow = brightness
-            highlight = 255
-        else:
-            shadow = 0
-            highlight = 255 + brightness
-        alpha_b = (highlight - shadow)/255
-        gamma_b = shadow
-        
-        buf = cv2.addWeighted(input_img, alpha_b, input_img, 0, gamma_b)
-    else:
-        buf = input_img.copy()
-    
-    if contrast != 0:
-        f = 131*(contrast + 127)/(127*(131-contrast))
-        alpha_c = f
-        gamma_c = 127*(1-f)
-        
-        buf = cv2.addWeighted(buf, alpha_c, buf, 0, gamma_c)
-
-    return buf
-
-
-def auto_canny(gray_image, sigma=0.66):
-    #compute median of single channel pixel intentsities
-    med = np.median(gray_image)
-
-    #apply automatic canny edge detection using median and sigma
-    lower = int(max(0, (1.0-sigma)*med))
-    upper = int(min(255, (1.0+sigma)*med))
-    edged = cv2.Canny(gray_image, lower, upper)
-
-    return edged
-
-
-def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, tailgate_ythird_coord, px_ratio):
-#  ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
-    drawn_image = image.copy()
-    for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
-        hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
-        closest_index = np.argmin(hyps) # gets index of closest point via hypotenuse
-
-        if handle_mid[1] < tailgate_ythird_coord[closest_index][1]: # if midpoint of handle is in top 1/3 of tailgate
-            min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax]) # if multiple handles found, finds closest tailgate
-            start_point = (handle_mid[0], handles_ymax[i]) # start point for drawn line
-            end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg) # end point for drawn line
-            cv2.line(drawn_image, start_point, end_point, (100,100,0), 4)
-            line_mid = int((start_point[1] + end_point[1])/2) # mid point for text
-            label = f'Distance: {((end_point[1] - start_point[1]) / px_ratio):.4f}"'
-            cv2.putText(drawn_image, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
-                        thickness=2, lineType=cv2.LINE_AA)
-            return start_point[1]
-        else:
-            return False
-
-def tailgate_masked(image, brightness, contrast, kernel):
-    gamma = adjust_gamma(image.copy())
-    contrast = apply_brightness_contrast(gamma, brightness=brightness, contrast=contrast)
-    # cv2.imwrite('./inference/0contrast.png', contrast)
-    bilat = cv2.bilateralFilter(contrast.copy(),9,75,75)  #gaussian blur faster than bilateralFilter
-    # cv2.imwrite('./inference/1bilat.png', bilat)
-
-    edges = auto_canny(bilat)
-    # cv2.imwrite('./inference/3edges.png', edges)
-
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,kernel) 
-    dilated = cv2.dilate(edges.copy(), kernel) #dilating edges to connect segments
-    # cv2.imwrite('./inference/4dilated.png', dilated)
-
-    edges2 = auto_canny(dilated.copy()) #getting edges of dilated image
-    # cv2.imwrite('./inference/5edges2.png', edges2)
-
-    cnts, _ = cv2.findContours(edges2.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-
-    max_contour = max(cnts, key=cv2.contourArea) #largest contour (hopefully the tailgate)
-    hull = cv2.convexHull(max_contour)
-
-    # drawn_ctrs = cv2.drawContours(image.copy(), [hull], -1, (0, 255, 0), 1) #can be removed, just for show
-
-    BGRA = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2BGRA)
-
-    masked = cv2.drawContours(BGRA.copy(), [hull], -1, (0,0,0,0), -1)
-    # cv2.imwrite('./inference/6masked.png', masked)
-
-    masked_image = cv2.bitwise_and(BGRA, masked)
-    # cv2.imwrite('./inference/7masked2BGRA.png', masked_image)
-
-    # fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15,10))
-    # ax1.imshow(drawn_ctrs)
-    # ax1.axis('off')
-    # ax2.imshow(masked_image)
-    # ax2.axis('off')
-    # plt.tight_layout();
-
-    return masked_image
 
 def adjust_gamma(image, gamma=1.2):
     # build a lookup table mapping the pixel values [0, 255] to
@@ -129,53 +32,32 @@ def adjust_gamma(image, gamma=1.2):
     # apply gamma correction using the lookup table
     return cv2.LUT(image, table)
 
-def handle_masked(image, brightness, contrast):
-    gamma = adjust_gamma(image.copy())
-    # cv2.imwrite('./inference/00gamma.png', gamma)
-    # This function needs to use whatever bright/contrast levels for the tg
-    adjusted = apply_brightness_contrast(gamma, brightness=brightness, contrast=contrast)
-    # cv2.imwrite('./inference/0contrast.png', adjusted)
 
-    bilat = cv2.bilateralFilter(adjusted.copy(),9,75,75)  #gaussian blur faster than bilateralFilter
-    # cv2.imwrite('./inference/1bilat.png', bilat)
+def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, tailgate_ythird_coord, px_ratio):
+#  ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
+    for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
+        hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
+        closest_index = np.argmin(hyps) # gets index of closest point via hypotenuse
 
-    edges = auto_canny(bilat.copy())
-    # cv2.imwrite('./inference/3edges.png', edges)
+        if handle_mid[1] < tailgate_ythird_coord[closest_index][1]: # if midpoint of handle is in top 1/3 of tailgate
+            print('\nHandle in top 1/3')
+            min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax]) # if multiple handles found, finds closest tailgate
+            start_point = (handle_mid[0], handles_ymax[i]) # start point for drawn line
+            end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg) # end point for drawn line
+            cv2.line(image, start_point, end_point, (100,100,0), 4)
+            line_mid = int((start_point[1] + end_point[1])/2) # mid point for text
+            label = f'Distance: {((end_point[1] - start_point[1]) / px_ratio):.4f}"'
+            cv2.putText(image, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
+                        thickness=2, lineType=cv2.LINE_AA)
+            return start_point[1]
+        else:
+            print('\nHandle in lower 2/3rds')
+            return False
 
-    # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)) 
-    # dilated = cv2.dilate(edges.copy(), kernel) #dilating edges to connect segments
-
-    # edges5 = cv2.Canny(dilated.copy(), 100, 200) #getting edges of dilated image
-
-    cnts, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-
-    max_contour = max(cnts, key=cv2.contourArea) #largest contour (hopefully the handle)
-    hull = cv2.convexHull(max_contour)
-
-    # drawn_ctrs = cv2.drawContours(image.copy(), [hull], -1, (0, 255, 0), 1) #can be removed, just for show
-
-    BGRA = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2RGBA)
-
-    masked = np.zeros(BGRA.shape, BGRA.dtype)
-    # cv2.imwrite('./inference/6masked.png', masked)
-
-    cv2.fillPoly(masked, [hull], (255,)*BGRA.shape[2], )
-
-    masked_image = cv2.bitwise_and(BGRA, masked)
-    # cv2.imwrite('./inference/7masked2BGRA.png', masked_image)
-
-    # fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15,10))
-    # ax1.imshow(drawn_ctrs)
-    # ax1.axis('off')
-    # ax2.imshow(masked_image)
-    # ax2.axis('off')
-    # plt.tight_layout();
-
-    return masked_image
 
 
 def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust):
-    final_image = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2RGBA)
+    final_image = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2BGRA)
 
     print(f'tg coords: {tg_coords}')
     print(f'h coords: {h_coords}')
@@ -192,13 +74,11 @@ def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust):
     print(f'diff adjust: {diff_adjust}')
 
     if diff_adjust:
-        
         final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg[diff_adjust:,:,:]
     else:
         final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg
 
-
-    if transp_h:
+    if type(transp_h)==np.ndarray:
         final_image[h_y1:h_y2, h_x1:h_x2] = transp_h
 
     return final_image
@@ -307,7 +187,7 @@ def detect(save_img=False):
                     s += '%g %ss, ' % (n, names[int(c)])  # add to string
 
                 det_sorted = sorted(det, key=lambda x: x[-1]) # sort detected items by last index which is class
-                
+
                 # Write results
                 for *xyxy, conf, cls in reversed(det_sorted): #coords, confidence, classes.... reversed for some reason? But actually helpful since plate is cls 2
                     x1, y1, x2, y2 = int(xyxy[0]),int(xyxy[1]),int(xyxy[2]),int(xyxy[3])
@@ -373,32 +253,16 @@ def detect(save_img=False):
                             tailgate_ythird_coord.append([tailgate_xmin, tailgate_ythird])
 
                             #im_t = img[coord1[0]:coord2[0], coord1[1]:coord2[1]]
-                        
+
                         else:
                             pass
                             
-                # added ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
-                # for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
-                #     hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
-                #     closest_index = np.argmin(hyps) # gets index of closest point via hypotenuse
-
-                #     if handle_mid[1] < tailgate_ythird_coord[closest_index][1]: # if midpoint of handle is in top 1/3 of tailgate
-                #         min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax]) # if multiple handles found, finds closest tailgate
-                #         start_point = (handle_mid[0], handles_ymax[i]) # start point for drawn line
-                #         end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg) # end point for drawn line
-                #         cv2.line(im0, start_point, end_point, (100,100,0), 4)
-                #         line_mid = int((start_point[1] + end_point[1])/2) # mid point for text
-                #         label = f'Distance: {((end_point[1] - start_point[1]) / px_ratio):.4f}"'
-                #         cv2.putText(im0, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
-                #                     thickness=2, lineType=cv2.LINE_AA)
-
-        
-                
+                            
 
                 # function draws and labels the distance from bottom of handle to bottom of tailgate
                 # if handle in top 1/3 of tailgate
                 # returns the y coord of handle bottom if so, else returns False
-                adj_tailgate_top = draw_dist_btm_h_to_btm_t(img_crops, handle_mids, handles_ymax, 
+                adj_tailgate_top = draw_dist_btm_h_to_btm_t(im0, handle_mids, handles_ymax, 
                                                             tailgates_ymax, tailgate_ythird_coord, px_ratio)
 
                 if adj_tailgate_top:
@@ -409,23 +273,23 @@ def detect(save_img=False):
                         crop_coords['diff_adjust'] = \
                             int(adj_tailgate_top - crop_coords['tg'][0])
                         crop_coords['tg'][0] = int(adj_tailgate_top)
-                        print(crop_coords['diff_adjust'])
                         transp_h = False
                 else:
-                    transp_h = handle_masked(im_h, brightness, contrast)
+                    crop_coords['diff_adjust'] = False
+                    transp_h = handle_detect_and_mask(im_h)
                     pass
 
             
                 #function gets the handle surrounded by transparency
-                
-
-                transp_tg = tailgate_masked(im_t, brightness, contrast, (5,5))
+                transp_tg = tailgate_detect_and_mask(im_t)
 
                 final_image = final_truck(img_crops, transp_tg, transp_h, 
                                             crop_coords['tg'], crop_coords['h'], crop_coords['diff_adjust'])
 
                 cv2.imwrite(f'{out_path}/{file_name}_transparency.png', final_image)
 
+            else:
+                print('\nNo Objects Detected')
 
 
             # Print time (inference + NMS)
