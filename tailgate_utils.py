@@ -86,6 +86,48 @@ def contours_from_edges_on_contours(image, sorted_contours):
     return sorted_contours2
 
 
+def get_array_of_corners(image):    
+    try:
+        grayscale = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2GRAY)
+    except:
+        grayscale = image.copy()
+
+    # dst = cv2.cornerHarris(grayscale,2,5,0.04)
+    corners = cv2.goodFeaturesToTrack(grayscale,30,0.0001,20) #returns as float
+    corners = np.int0(corners) # turns all floats to int
+
+    #inspect_all_corners = image.copy() #For visualization
+
+    for i in corners:
+        x,y = i.ravel()
+        #cv2.circle(inspect_all_corners,(x,y),3,255,-1) # places circles on all found corners
+        #plt.imshow(inspect_all_corners)
+
+    line_1 = int(image.shape[0] * 0.1)
+    line_2 = int(image.shape[0] - line_1)
+    line_3 = int(image.shape[1] - line_1)
+
+    corners_array = []
+    
+    #final_corners = image.copy() # For visualization
+
+    for i in corners:
+        x,y = i.ravel()
+        if x < line_1 and y < line_1:
+            #cv2.circle(final_corners,(x,y),3,255,-1)
+            corners_array.append([[x,y]])    
+        elif x < line_1 and y > line_2:
+            #cv2.circle(final_corners,(x,y),3,255,-1)
+            corners_array.append([[x,y]])
+        elif x > line_3 and y > line_2:
+            #cv2.circle(final_corners,(x,y),3,255,-1)
+            corners_array.append([[x,y]])
+        elif x > line_3 and y < line_1:
+            #cv2.circle(final_corners,(x,y),3,255,-1)
+            corners_array.append([[x,y]])
+    return np.array(corners_array)
+
+
 def add_border(truck_image):
     bordered_image = cv2.copyMakeBorder(truck_image, 2,2,2,2, cv2.BORDER_CONSTANT, value=(0,255,0))
     return bordered_image
@@ -122,7 +164,6 @@ def transparent_handle_mask(orig_image, hull):
 
 
 def tailgate_detect_and_mask(image):
-
     image_area = image.shape[0] * image.shape[1]
     mode_of_image = get_mode(image.copy())
 
