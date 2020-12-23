@@ -1,3 +1,4 @@
+from numpy.core.numeric import full
 from scipy.stats import mode
 import cv2
 import numpy as np
@@ -149,7 +150,6 @@ def transparent_tailgate_mask(orig_image, hull):
     masked = cv2.drawContours(BGRA.copy(), [hull], -1, (0,0,0,0), -1)
 
     masked_image = cv2.bitwise_and(BGRA, masked)
-    get_tailgate_dims(masked_image)
     return masked_image
 
 
@@ -160,8 +160,6 @@ def transparent_handle_mask(orig_image, hull):
     cv2.fillPoly(mask, [hull], (255,)*BGRA.shape[2], )
 
     masked_image = cv2.bitwise_and(BGRA, mask)
-    get_handle_dims(masked_image)
-
     return masked_image
 
 
@@ -178,8 +176,7 @@ def get_tailgate_dims(image):
 
     pixel_width = tg_xmax - tg_xmin
     pixel_height = tg_ymax - tg_ymin
-    info_to_csv['tg_height'] = pixel_height
-    info_to_csv['tg_width'] = pixel_width
+
     return pixel_width, pixel_height
 
 
@@ -190,8 +187,6 @@ def get_handle_dims(image):
     handle_xmin, handle_xmax = min(handle_coords[1]), max(handle_coords[1])
     pixel_width = handle_xmax - handle_xmin
     pixel_height = handle_ymax - handle_ymin
-    info_to_csv['handle_height'] = pixel_height
-    info_to_csv['handle_width'] = pixel_width
     return pixel_width, pixel_height
 
 
@@ -242,9 +237,9 @@ def tailgate_detect_and_mask(image):
                     # ax2.axis('off')
                     # plt.tight_layout();
                     
-                    print(f'full process [ {(" >>> ").join(full_process)} ]')
+                    #print(f'full process [ {(" >>> ").join(full_process)} ]')
 
-                    return masked_image
+                    return masked_image, full_process
 
                 elif cv2.contourArea(max_contour) < int(image_area*.75):
                     if (cv2.contourArea(sorted_contours[0]) + 
@@ -267,9 +262,9 @@ def tailgate_detect_and_mask(image):
                         # ax2.axis('off')
                         # plt.tight_layout();
 
-                        print(f'full process [ {(" >>> ").join(full_process)} ]')
+                        # print(f'full process [ {(" >>> ").join(full_process)} ]')
 
-                        return masked_image
+                        return masked_image, full_process
 
     full_process.append('edge processes tried')
 
@@ -305,9 +300,9 @@ def tailgate_detect_and_mask(image):
                     # ax2.axis('off')
                     # plt.tight_layout();
                     
-                    print(f'full process [ {(" >>> ").join(full_process)} ]')
+                    # print(f'full process [ {(" >>> ").join(full_process)} ]')
 
-                    return masked_image 
+                    return masked_image, full_process
 
     full_process.append('corner processes tried')          
 
@@ -343,9 +338,9 @@ def tailgate_detect_and_mask(image):
                     # ax2.axis('off')
                     # plt.tight_layout();
                     
-                    print(f'full process [ {(" >>> ").join(full_process)} ]')
+                    # print(f'full process [ {(" >>> ").join(full_process)} ]')
 
-                    return masked_image
+                    return masked_image, full_process
 
                 elif cv2.contourArea(max_contour) < int(image_area*.75):
                     if (cv2.contourArea(sorted_contours[0]) + 
@@ -368,14 +363,15 @@ def tailgate_detect_and_mask(image):
                         # ax2.axis('off')
                         # plt.tight_layout();
 
-                        print(f'full process [ {(" >>> ").join(full_process)} ]')
+                        # print(f'full process [ {(" >>> ").join(full_process)} ]')
 
-                        return masked_image
+                        return masked_image, full_process
 
     full_process.append('border processes tried')                
 
     full_process.append('tailgate not found')
-    print(f'full tailgate process [ {(" >>> ").join(full_process)} ]')
+    # print(f'full tailgate process [ {(" >>> ").join(full_process)} ]')
+    return False, full_process
 
 
 
@@ -411,9 +407,9 @@ def handle_detect_and_mask(image):
                 max_contour = sorted_contours[0] #largest contour (hopefully the tailgate)
 
                 if cv2.contourArea(max_contour) > int(image_area*.4):
-                    print(f'area of max contour: {cv2.contourArea(max_contour)}')
-                    print(f'.4 * image area: {int(image_area*.4)}')
-                    print(f'image area: {image_area}')
+                    # print(f'area of max contour: {cv2.contourArea(max_contour)}')
+                    # print(f'.4 * image area: {int(image_area*.4)}')
+                    # print(f'image area: {image_area}')
                     full_process.append('contour > 40% of area')
 
                     hull = cv2.convexHull(max_contour)
@@ -430,9 +426,9 @@ def handle_detect_and_mask(image):
                     ax2.axis('off')
                     plt.tight_layout();
                     
-                    print(f'full process [ {(" -> ").join(full_process)} ]')
+                    # print(f'full process [ {(" -> ").join(full_process)} ]')
 
-                    return masked_image
+                    return masked_image, full_process
 
                 elif cv2.contourArea(max_contour) < int(image_area*.40) \
                 and len(sorted_contours) > 1:
@@ -449,16 +445,16 @@ def handle_detect_and_mask(image):
                         masked_image = transparent_handle_mask(image, hull)
                         full_process.append('masked')
 
-                        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
-                        ax1.imshow(image)
-                        ax1.axis('off')
-                        ax2.imshow(masked_image)
-                        ax2.axis('off')
-                        plt.tight_layout();
+                        # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
+                        # ax1.imshow(image)
+                        # ax1.axis('off')
+                        # ax2.imshow(masked_image)
+                        # ax2.axis('off')
+                        # plt.tight_layout();
 
-                        print(f'full process [ {(" -> ").join(full_process)} ]')
+                        # print(f'full process [ {(" -> ").join(full_process)} ]')
 
-                        return masked_image
+                        return masked_image, full_process
 
                 elif cv2.contourArea(max_contour) < int(image_area*.4):
                     sorted_contours2 = contours_from_edges_on_contours(image.copy(), sorted_contours)
@@ -473,16 +469,16 @@ def handle_detect_and_mask(image):
                         masked_image = transparent_handle_mask(image, hull)
                         full_process.append('masked')
 
-                        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
-                        ax1.imshow(image)
-                        ax1.axis('off')
-                        ax2.imshow(masked_image)
-                        ax2.axis('off')
-                        plt.tight_layout();
+                        # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
+                        # ax1.imshow(image)
+                        # ax1.axis('off')
+                        # ax2.imshow(masked_image)
+                        # ax2.axis('off')
+                        # plt.tight_layout();
                         
-                        print(f'full process [ {(" -> ").join(full_process)} ]')
+                        # print(f'full process [ {(" -> ").join(full_process)} ]')
 
-                        return masked_image
+                        return masked_image, full_process
                     
                     elif cv2.contourArea(sorted_contours2[0]) < int(image_area*.4) \
                     and len(sorted_contours2) > 1:
@@ -499,20 +495,21 @@ def handle_detect_and_mask(image):
                             masked_image = transparent_handle_mask(image, hull)
                             full_process.append('masked')
 
-                            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
-                            ax1.imshow(image)
-                            ax1.axis('off')
-                            ax2.imshow(masked_image)
-                            ax2.axis('off')
-                            plt.tight_layout();
+                            # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
+                            # ax1.imshow(image)
+                            # ax1.axis('off')
+                            # ax2.imshow(masked_image)
+                            # ax2.axis('off')
+                            # plt.tight_layout();
 
-                            print(f'full process [ {(" -> ").join(full_process)} ]')
+                            # print(f'full process [ {(" -> ").join(full_process)} ]')
 
-                            return masked_image
+                            return masked_image, full_process
                 else:
                     pass
             else:
                 pass
-    print(f'brightness {i} | contrast {j}')
+    # print(f'brightness {i} | contrast {j}')
     full_process.append('handle not found')
-    print(f'full handle process [ {(" -> ").join(full_process)} ]')
+    # print(f'full handle process [ {(" -> ").join(full_process)} ]')
+    return False, full_process

@@ -5,6 +5,7 @@ import platform
 import shutil
 import time
 from pathlib import Path
+from yolov5.tailgate_utils import get_tailgate_dims
 
 import cv2
 import torch
@@ -23,14 +24,14 @@ from tailgate_utils import *
 
 
 
-def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, tailgate_ythird_coord, px_ratio):
+def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, tailgate_ythird_coord, px_ratio, info_to_csv):
 #  ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
     for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
         hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
         closest_index = np.argmin(hyps) # gets index of closest point via hypotenuse
 
         if handle_mid[1] < tailgate_ythird_coord[closest_index][1]: # if midpoint of handle is in top 1/3 of tailgate
-            print('\nHandle in top 1/3')
+            info_to_csv['handle_loc'] = 'Handle in top 1/3'
             min_dist_tg = min([int(abs(max_point - x)) for x in tailgates_ymax]) # if multiple handles found, finds closest tailgate
             start_point = (handle_mid[0], handles_ymax[i]) # start point for drawn line
             end_point = (handle_mid[0], handles_ymax[i] + min_dist_tg) # end point for drawn line
@@ -39,14 +40,17 @@ def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, t
             label = f'Distance: {((end_point[1] - start_point[1]) / px_ratio):.4f}"'
             cv2.putText(image, label, (start_point[0], line_mid), 0, 1, [0, 0, 0], 
                         thickness=2, lineType=cv2.LINE_AA)
-            return start_point[1]
+            return start_point[1], info_to_csv
         else:
-            print('\nHandle in lower 2/3rds')
-            return False
+            info_to_csv['handle_loc'] = 'Handle in lower 2/3rds'
+            return False, info_to_csv
 
 
-def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust):
+def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust, info_to_csv):
     final_image = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2BGRA)
+
+    info_to_csv['tg_width'], info_to_csv['tg_height'] = get_tailgate_dims(transp_tg)
+    info_to_csv['handle_width'], info_to_csv['_height'] = get__dims(transp_tg)
 
     # print(f'tg coords: {tg_coords}')
     # print(f'h coords: {h_coords}')
@@ -60,7 +64,7 @@ def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust):
     tg_y1, tg_y2, tg_x1, tg_x2  = tg_coords
     h_y1, h_y2, h_x1, h_x2 = h_coords
 
-    print(f'diff adjust: {diff_adjust}')
+    # print(f'diff adjust: {diff_adjust}')
 
     if diff_adjust:
         final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg[diff_adjust:,:,:]
@@ -70,7 +74,7 @@ def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust):
     if type(transp_h)==np.ndarray:
         final_image[h_y1:h_y2, h_x1:h_x2] = transp_h
 
-    return final_image
+    return final_image, info_to_csv
 
 
 def detect(save_img=False):
@@ -167,7 +171,7 @@ def detect(save_img=False):
 
                 crop_coords = {}
 
-                info_to_csv = {'file': file_name}
+                info_to_csv = {'file': file_name, 'objects_detected':True}
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -197,7 +201,7 @@ def detect(save_img=False):
                         # cv2.imwrite(f'{out_path}/{file_name}_p_edge.png', im_p)
                     
                     elif int(cls) == 1: #handle
-                        print(f'handle y1,y2,x1,x2: {y1},{y2},{x1},{x2}')
+                        # print(f'handle y1,y2,x1,x2: {y1},{y2},{x1},{x2}')
                         im_h = img_crops[y1:y2, x1:x2]
                         crop_coords['h'] = [y1,y2,x1,x2]
 
@@ -205,7 +209,7 @@ def detect(save_img=False):
                         
                     elif int(cls) == 0: #tailgate
                         im_t = img_crops[y1:y2, x1:x2]
-                        print(f'tailgate y1,y2,x1,x2: {y1},{y2},{x1},{x2}')
+                        # print(f'tailgate y1,y2,x1,x2: {y1},{y2},{x1},{x2}')
                         crop_coords['tg'] = [y1,y2,x1,x2]
 
                         cv2.imwrite(f'{out_path}/{file_name}_t_edge.png', im_t)
@@ -251,8 +255,8 @@ def detect(save_img=False):
                 # function draws and labels the distance from bottom of handle to bottom of tailgate
                 # if handle in top 1/3 of tailgate
                 # returns the y coord of handle bottom if so, else returns False
-                adj_tailgate_top = draw_dist_btm_h_to_btm_t(im0, handle_mids, handles_ymax, 
-                                                            tailgates_ymax, tailgate_ythird_coord, px_ratio)
+                adj_tailgate_top, info_to_csv = draw_dist_btm_h_to_btm_t(im0, handle_mids, handles_ymax, 
+                                                            tailgates_ymax, tailgate_ythird_coord, px_ratio, info_to_csv)
 
                 if adj_tailgate_top:
                     if adj_tailgate_top > crop_coords['tg'][0]:
@@ -262,21 +266,26 @@ def detect(save_img=False):
                         crop_coords['tg'][0] = int(adj_tailgate_top)
                         transp_h = False
                 else:
-                    crop_coords['diff_adjust'] = False
-                    transp_h = handle_detect_and_mask(im_h)
+                    transp_h, full_handle_process = handle_detect_and_mask(im_h)
                     pass
 
             
                 #function gets the handle surrounded by transparency
-                transp_tg = tailgate_detect_and_mask(im_t)
+                transp_tg, full_tailgate_process = tailgate_detect_and_mask(im_t)
 
-                final_image = final_truck(img_crops, transp_tg, transp_h, 
-                                            crop_coords['tg'], crop_coords['h'], crop_coords['diff_adjust'])
+                final_image, info_to_csv = final_truck(img_crops, transp_tg, transp_h, 
+                                            crop_coords['tg'], crop_coords['h'], crop_coords['diff_adjust'], info_to_csv)
 
                 cv2.imwrite(f'{out_path}/{file_name}_transparency.png', final_image)
+                
+                with open('tailgate_dimensions.csv','a') as csv_doc:
+                    csv_doc.write(info_to_csv)
 
             else:
-                print('\nNo Objects Detected')
+                info_to_csv = {'file': file_name, 'objects_detected':False}
+                with open('tailgate_dimensions.csv','a') as csv_doc:
+                    csv_doc.write(info_to_csv)
+                
 
 
             # Print time (inference + NMS)
