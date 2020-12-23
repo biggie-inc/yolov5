@@ -22,16 +22,6 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized
 from tailgate_utils import *
 
 
-def adjust_gamma(image, gamma=1.2):
-    # build a lookup table mapping the pixel values [0, 255] to
-    # their adjusted gamma values
-    invGamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** invGamma) * 255
-        for i in np.arange(0, 256)]).astype("uint8")
-
-    # apply gamma correction using the lookup table
-    return cv2.LUT(image, table)
-
 
 def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, tailgate_ythird_coord, px_ratio):
 #  ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
@@ -55,18 +45,17 @@ def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, t
             return False
 
 
-
 def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust):
     final_image = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2BGRA)
 
-    print(f'tg coords: {tg_coords}')
-    print(f'h coords: {h_coords}')
-    print(f'final image shape: {final_image.shape}')
-    print(f'transp_tg image shape: {transp_tg.shape}')
+    # print(f'tg coords: {tg_coords}')
+    # print(f'h coords: {h_coords}')
+    # print(f'final image shape: {final_image.shape}')
+    # print(f'transp_tg image shape: {transp_tg.shape}')
 
-    cv2.imwrite('./inference/image_input.png', final_image)
-    cv2.imwrite('./inference/transp_tg.png', transp_tg)
-    cv2.imwrite('./inference/transp_h.png', transp_h)
+    # cv2.imwrite('./inference/image_input.png', final_image)
+    # cv2.imwrite('./inference/transp_tg.png', transp_tg)
+    # cv2.imwrite('./inference/transp_h.png', transp_h)
 
     tg_y1, tg_y2, tg_x1, tg_x2  = tg_coords
     h_y1, h_y2, h_x1, h_x2 = h_coords
@@ -168,18 +157,17 @@ def detect(save_img=False):
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
                 
                 handles_ymax = []
-                #handles_xmid = []
                 handle_mids = []
 
                 tailgates_ymin = []
                 tailgates_ymax = []
                 tailgate_ythird_coord = []
 
-                brightness = 25
-                contrast = 65
                 px_ratio = 1
 
                 crop_coords = {}
+
+                info_to_csv = {'file': file_name}
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -204,6 +192,7 @@ def detect(save_img=False):
                     elif int(cls) == 2: # license plate
                         license_width = abs(int(x2 - x1))
                         px_ratio = license_width / 12   # number of pixels per inch as license plates are 12"
+                        info_to_csv['px_ratio'] = px_ratio
                         # im_p = img_crops[y1:y2, x1:x2]
                         # cv2.imwrite(f'{out_path}/{file_name}_p_edge.png', im_p)
                     
@@ -266,8 +255,6 @@ def detect(save_img=False):
                                                             tailgates_ymax, tailgate_ythird_coord, px_ratio)
 
                 if adj_tailgate_top:
-                    print(adj_tailgate_top)
-                    print(crop_coords['tg'][0])
                     if adj_tailgate_top > crop_coords['tg'][0]:
                         # This all affects final_tailgate()
                         crop_coords['diff_adjust'] = \

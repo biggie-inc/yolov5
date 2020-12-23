@@ -92,14 +92,14 @@ def get_array_of_corners(image):
     except:
         grayscale = image.copy()
 
-    # dst = cv2.cornerHarris(grayscale,2,5,0.04)
+    # dst = cv2.cornerHarris(grayscale,2,5,0.04) # another corner alg that didn't work as well
     corners = cv2.goodFeaturesToTrack(grayscale,30,0.0001,20) #returns as float
     corners = np.int0(corners) # turns all floats to int
 
     #inspect_all_corners = image.copy() #For visualization
 
     for i in corners:
-        x,y = i.ravel()
+        x,y = i.ravel() #isn't ravel the coolest?
         #cv2.circle(inspect_all_corners,(x,y),3,255,-1) # places circles on all found corners
         #plt.imshow(inspect_all_corners)
 
@@ -149,6 +149,7 @@ def transparent_tailgate_mask(orig_image, hull):
     masked = cv2.drawContours(BGRA.copy(), [hull], -1, (0,0,0,0), -1)
 
     masked_image = cv2.bitwise_and(BGRA, masked)
+    get_tailgate_dims(masked_image)
     return masked_image
 
 
@@ -159,8 +160,39 @@ def transparent_handle_mask(orig_image, hull):
     cv2.fillPoly(mask, [hull], (255,)*BGRA.shape[2], )
 
     masked_image = cv2.bitwise_and(BGRA, mask)
+    get_handle_dims(masked_image)
 
     return masked_image
+
+
+def get_tailgate_dims(image):
+    #which x,y pairs aren't transparent. Outputs two arrays - [0]:y's, [1]:x's
+    tg_coords = np.where(np.all((image == [0,0,0,0]),axis=-1)) 
+    tg_ymin, tg_ymax = min(tg_coords[0]), max(tg_coords[0])
+    tg_xmin, tg_xmax = min(tg_coords[1]), max(tg_coords[1])
+        
+    fig, ax = plt.subplots(1,1, figsize=(8,6))
+    ax.imshow(image)
+    ax.plot(tg_xmin, tg_ymin, 'bo')
+    ax.plot(tg_xmax, tg_ymax, 'go')
+
+    pixel_width = tg_xmax - tg_xmin
+    pixel_height = tg_ymax - tg_ymin
+    info_to_csv['tg_height'] = pixel_height
+    info_to_csv['tg_width'] = pixel_width
+    return pixel_width, pixel_height
+
+
+def get_handle_dims(image):
+    #which x,y pairs aren't transparent. Outputs two arrays - [0]:y's, [1]:x's
+    handle_coords = np.where(np.all((image != [0,0,0,0]),axis=-1)) 
+    handle_ymin, handle_ymax = min(handle_coords[0]), max(handle_coords[0])
+    handle_xmin, handle_xmax = min(handle_coords[1]), max(handle_coords[1])
+    pixel_width = handle_xmax - handle_xmin
+    pixel_height = handle_ymax - handle_ymin
+    info_to_csv['handle_height'] = pixel_height
+    info_to_csv['handle_width'] = pixel_width
+    return pixel_width, pixel_height
 
 
 def tailgate_detect_and_mask(image):
