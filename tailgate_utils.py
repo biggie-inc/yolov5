@@ -166,27 +166,31 @@ def transparent_handle_mask(orig_image, hull):
 def get_tailgate_dims(image):
     #which x,y pairs aren't transparent. Outputs two arrays - [0]:y's, [1]:x's
     tg_coords = np.where(np.all((image == [0,0,0,0]),axis=-1)) 
-    tg_ymin, tg_ymax = min(tg_coords[0]), max(tg_coords[0])
-    tg_xmin, tg_xmax = min(tg_coords[1]), max(tg_coords[1])
-        
-    fig, ax = plt.subplots(1,1, figsize=(8,6))
-    ax.imshow(image)
-    ax.plot(tg_xmin, tg_ymin, 'bo')
-    ax.plot(tg_xmax, tg_ymax, 'go')
+    if len(tg_coords[0]) > 1 and len(tg_coords[1]) > 1:
+        tg_ymin, tg_ymax = min(tg_coords[0]), max(tg_coords[0])
+        tg_xmin, tg_xmax = min(tg_coords[1]), max(tg_coords[1])
 
-    pixel_width = tg_xmax - tg_xmin
-    pixel_height = tg_ymax - tg_ymin
+        pixel_width = tg_xmax - tg_xmin
+        pixel_height = tg_ymax - tg_ymin
+    else:
+        pixel_width = ''
+        pixel_height = ''
+
 
     return pixel_width, pixel_height
 
 
 def get_handle_dims(image):
     #which x,y pairs aren't transparent. Outputs two arrays - [0]:y's, [1]:x's
-    handle_coords = np.where(np.all((image != [0,0,0,0]),axis=-1)) 
-    handle_ymin, handle_ymax = min(handle_coords[0]), max(handle_coords[0])
-    handle_xmin, handle_xmax = min(handle_coords[1]), max(handle_coords[1])
-    pixel_width = handle_xmax - handle_xmin
-    pixel_height = handle_ymax - handle_ymin
+    handle_coords = np.where(np.all((image != [0,0,0,0]),axis=-1))
+    if len(handle_coords[0]) > 1 and len(handle_coords[1]) > 1:
+        handle_ymin, handle_ymax = min(handle_coords[0]), max(handle_coords[0])
+        handle_xmin, handle_xmax = min(handle_coords[1]), max(handle_coords[1])
+        pixel_width = handle_xmax - handle_xmin
+        pixel_height = handle_ymax - handle_ymin
+    else:
+        pixel_width = ''
+        pixel_height = ''
     return pixel_width, pixel_height
 
 
