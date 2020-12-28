@@ -65,7 +65,7 @@ def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust, in
 
     # print(f'diff adjust: {diff_adjust}')
 
-    if diff_adjust:
+    if isinstance(diff_adjust, int):
         final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg[diff_adjust:,:,:]
     else:
         final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg
