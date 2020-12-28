@@ -170,7 +170,10 @@ def detect(save_img=False):
 
                 crop_coords = {}
 
-                info_to_csv = {'file': file_name, 'objects_detected':True}
+                info_to_csv = {
+                    'file': file_name, 'objects_detected':True, 'handle_loc':None, 'handle_width':None, 
+                    'handle_height':None, 'handle_process':None, 'tg_width':None, 'tg_height':None, 
+                    'tailgate_proces':None, 'px_ratio':None}
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -281,7 +284,7 @@ def detect(save_img=False):
                 #     csv_doc.write(info_to_csv)
 
             else:
-                info_to_csv = {'file': file_name, 'objects_detected':False}
+                info_to_csv['objects_detected'] = False
                 # with open('tailgate_dimensions.csv','a') as csv_doc:
                 #     csv_doc.write(info_to_csv)
                 
