@@ -1,6 +1,7 @@
 import argparse
 from math import e
 import os
+from csv import DictWriter
 import platform
 import shutil
 import time
@@ -22,6 +23,19 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 from tailgate_utils import *
 
+
+
+def append_dict_as_row(file_name, dict_of_elem, field_names):
+    # Open file in append mode
+    with open(file_name, 'a+', newline='') as write_obj:
+        writer = DictWriter(write_obj, fieldnames=field_names)
+        writer.writerow(dict_of_elem)
+
+def create_csv_from_dict(file_name, dict_of_elem, field_names):
+    with open(file_name, 'w') as csv:
+        writer = DictWriter(csv, fieldnames=field_names)
+        writer.writeheader()
+        writer.writerows(dict_of_elem)
 
 
 def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, tailgate_ythird_coord, px_ratio, info_to_csv):
@@ -176,6 +190,10 @@ def detect(save_img=False):
                     'file': file_name, 'objects_detected':True, 'handle_loc':None, 'handle_width':None, 
                     'handle_height':None, 'handle_process':None, 'tg_width':None, 'tg_height':None, 
                     'tg_process':None, 'px_ratio':None}
+                
+                field_names = list(info_to_csv.keys())
+
+                csv_filepath = f'{out_path}/tailgate_data.csv'
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -201,8 +219,8 @@ def detect(save_img=False):
                         license_width = abs(int(x2 - x1))
                         px_ratio = license_width / 12   # number of pixels per inch as license plates are 12"
                         info_to_csv['px_ratio'] = px_ratio
-                        # im_p = img_crops[y1:y2, x1:x2]
-                        # cv2.imwrite(f'{out_path}/{file_name}_p_edge.png', im_p)
+                        # im_p = img_crops[y1:y2, x1:x2] # currently no need to crop 
+                        # cv2.imwrite(f'{out_path}/{file_name}_p_edge.png', im_p) # currently no need to output the picture of the license plate
                     
                     elif int(cls) == 1: #handle
                         # print(f'handle y1,y2,x1,x2: {y1},{y2},{x1},{x2}')
@@ -280,7 +298,7 @@ def detect(save_img=False):
 
             
                 #function gets the handle surrounded by transparency
-                transp_tg, full_tailgate_process = tailgate_detect_and_mask(im_t)]
+                transp_tg, full_tailgate_process = tailgate_detect_and_mask(im_t)
                 info_to_csv['tg_process'] = (" >>> ").join(full_tailgate_process)
                 try:
                     cv2.imwrite(f'{out_path}/{file_name}_transparent_tg.png', transp_tg)
@@ -293,14 +311,15 @@ def detect(save_img=False):
 
                 cv2.imwrite(f'{out_path}/{file_name}_full_transparency.png', final_image)
                 
-                # with open('tailgate_dimensions.csv','a') as csv_doc:
-                #     csv_doc.write(info_to_csv)
-
             else:
                 info_to_csv['objects_detected'] = False
-                # with open('tailgate_dimensions.csv','a') as csv_doc:
-                #     csv_doc.write(info_to_csv)
-                
+
+
+            # write or append info_to_csv
+            if os.path.isfile(csv_filepath): 
+                append_dict_as_row(csv_filepath, info_to_csv, field_names)
+            else:
+                create_csv_from_dict(csv_filepath, info_to_csv, field_names)   
 
 
             # Print time (inference + NMS)
@@ -336,7 +355,6 @@ def detect(save_img=False):
             os.system('open ' + save_path)
 
     print('Done. (%.3fs)' % (time.time() - t0))
-    print(info_to_csv)
 
 
 if __name__ == '__main__':
