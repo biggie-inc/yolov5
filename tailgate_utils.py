@@ -1,3 +1,4 @@
+from numpy.core.numeric import full
 from scipy.stats import mode
 import cv2
 import numpy as np
@@ -86,6 +87,48 @@ def contours_from_edges_on_contours(image, sorted_contours):
     return sorted_contours2
 
 
+def get_array_of_corners(image):    
+    try:
+        grayscale = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2GRAY)
+    except:
+        grayscale = image.copy()
+
+    # dst = cv2.cornerHarris(grayscale,2,5,0.04) # another corner alg that didn't work as well
+    corners = cv2.goodFeaturesToTrack(grayscale,30,0.0001,20) #returns as float
+    corners = np.int0(corners) # turns all floats to int
+
+    #inspect_all_corners = image.copy() #For visualization
+
+    for i in corners:
+        x,y = i.ravel() #isn't ravel the coolest?
+        #cv2.circle(inspect_all_corners,(x,y),3,255,-1) # places circles on all found corners
+        #plt.imshow(inspect_all_corners)
+
+    line_1 = int(image.shape[0] * 0.1)
+    line_2 = int(image.shape[0] - line_1)
+    line_3 = int(image.shape[1] - line_1)
+
+    corners_array = []
+    
+    #final_corners = image.copy() # For visualization
+
+    for i in corners:
+        x,y = i.ravel()
+        if x < line_1 and y < line_1:
+            #cv2.circle(final_corners,(x,y),3,255,-1)
+            corners_array.append([[x,y]])    
+        elif x < line_1 and y > line_2:
+            #cv2.circle(final_corners,(x,y),3,255,-1)
+            corners_array.append([[x,y]])
+        elif x > line_3 and y > line_2:
+            #cv2.circle(final_corners,(x,y),3,255,-1)
+            corners_array.append([[x,y]])
+        elif x > line_3 and y < line_1:
+            #cv2.circle(final_corners,(x,y),3,255,-1)
+            corners_array.append([[x,y]])
+    return np.array(corners_array)
+
+
 def add_border(truck_image):
     bordered_image = cv2.copyMakeBorder(truck_image, 2,2,2,2, cv2.BORDER_CONSTANT, value=(0,255,0))
     return bordered_image
@@ -117,33 +160,62 @@ def transparent_handle_mask(orig_image, hull):
     cv2.fillPoly(mask, [hull], (255,)*BGRA.shape[2], )
 
     masked_image = cv2.bitwise_and(BGRA, mask)
-
     return masked_image
 
 
-def tailgate_detect_and_mask(image):
+def get_tailgate_dims(image):
+    #which x,y pairs aren't transparent. Outputs two arrays - [0]:y's, [1]:x's
+    tg_coords = np.where(np.all((image == [0,0,0,0]),axis=-1)) 
+    if len(tg_coords[0]) > 1 and len(tg_coords[1]) > 1:
+        tg_ymin, tg_ymax = min(tg_coords[0]), max(tg_coords[0])
+        tg_xmin, tg_xmax = min(tg_coords[1]), max(tg_coords[1])
 
+        pixel_width = tg_xmax - tg_xmin
+        pixel_height = tg_ymax - tg_ymin
+    else:
+        pixel_width = ''
+        pixel_height = ''
+
+
+    return pixel_width, pixel_height
+
+
+def get_handle_dims(image):
+    #which x,y pairs aren't transparent. Outputs two arrays - [0]:y's, [1]:x's
+    handle_coords = np.where(np.all((image != [0,0,0,0]),axis=-1))
+    if len(handle_coords[0]) > 1 and len(handle_coords[1]) > 1:
+        handle_ymin, handle_ymax = min(handle_coords[0]), max(handle_coords[0])
+        handle_xmin, handle_xmax = min(handle_coords[1]), max(handle_coords[1])
+        pixel_width = handle_xmax - handle_xmin
+        pixel_height = handle_ymax - handle_ymin
+    else:
+        pixel_width = ''
+        pixel_height = ''
+    return pixel_width, pixel_height
+
+
+def tailgate_detect_and_mask(image):
     image_area = image.shape[0] * image.shape[1]
     mode_of_image = get_mode(image.copy())
 
     full_process = [f'mode of image: {mode_of_image}']
 
     if mode_of_image >= 125: # The mode of the image will determine if the image needs to be darkened or lightened
-        first_range_tens = np.arange(0,-111, -10)
+        brightness_range = np.arange(0,-111, -10)
         full_process.append('darken process')
     else:
-        first_range_tens = np.arange(0,111, 10)
+        brightness_range = np.arange(0,111, 10)
         full_process.append('lighten process')
 
-    second_range_tens = np.arange(0,111, 10)
+    contrast_range = np.arange(0,111, 10)
    
     # Multiple sections of for loops used as edge detection should be primary,
-    # Corner detection secondary
+    # Corner detection secondary,
     # And border creation to force-close edges a last resort
 
 
-    for i in first_range_tens:
-        for j in second_range_tens:
+    for i in brightness_range:
+        for j in contrast_range:
             contrast = apply_brightness_contrast(image.copy(), brightness=i, contrast=j)
             bilat = cv2.bilateralFilter(contrast.copy(),9,75,75) #bilateral filter slower than gaussian but maintains edges better
             edges = layered_edge_detection(bilat.copy())
@@ -169,9 +241,9 @@ def tailgate_detect_and_mask(image):
                     # ax2.axis('off')
                     # plt.tight_layout();
                     
-                    print(f'full process [ {(" >>> ").join(full_process)} ]')
+                    #print(f'full process [ {(" >>> ").join(full_process)} ]')
 
-                    return masked_image
+                    return masked_image, full_process
 
                 elif cv2.contourArea(max_contour) < int(image_area*.75):
                     if (cv2.contourArea(sorted_contours[0]) + 
@@ -194,15 +266,15 @@ def tailgate_detect_and_mask(image):
                         # ax2.axis('off')
                         # plt.tight_layout();
 
-                        print(f'full process [ {(" >>> ").join(full_process)} ]')
+                        # print(f'full process [ {(" >>> ").join(full_process)} ]')
 
-                        return masked_image
+                        return masked_image, full_process
 
     full_process.append('edge processes tried')
 
-    # Corner Processing         
-    for i in first_range_tens:
-        for j in second_range_tens:
+    # Corner Processing        
+    for i in brightness_range:
+        for j in contrast_range:
             contrast = apply_brightness_contrast(image.copy(), brightness=i, contrast=j)
             bilat = cv2.bilateralFilter(contrast.copy(),9,75,75) #bilateral filter slower than gaussian but maintains edges better
             edges = layered_edge_detection(bilat.copy())
@@ -232,22 +304,22 @@ def tailgate_detect_and_mask(image):
                     # ax2.axis('off')
                     # plt.tight_layout();
                     
-                    print(f'full process [ {(" >>> ").join(full_process)} ]')
+                    # print(f'full process [ {(" >>> ").join(full_process)} ]')
 
-                    return masked_image 
+                    return masked_image, full_process
 
     full_process.append('corner processes tried')          
 
     # If all else fails.... border process
-    for i in first_range_tens:
-        for j in second_range_tens:
+    for i in brightness_range:
+        for j in contrast_range:
             contrast = apply_brightness_contrast(image.copy(), brightness=i, contrast=j)
             bilat = cv2.bilateralFilter(contrast.copy(),9,75,75)  
 
             # adding border around image to force-close contours as a last measure
             bordered_edges = border_process(bilat.copy())
             bordered_sorted_contours = get_contours(bordered_edges.copy())
-            # drawn_ctrs = cv2.drawContours(bilat.copy(), bordered_sorted_contours, -1, (0, 255, 0), 2)
+            # drawn_ctrs = cv2.drawContours(bilat.copy(), bordered_sorted_contours, -1, (0, 255, 0), 2) #uncomment and plot for visualization of contours
             # plt.imshow(drawn_ctrs)
                
             if len(bordered_sorted_contours) > 0:
@@ -270,9 +342,9 @@ def tailgate_detect_and_mask(image):
                     # ax2.axis('off')
                     # plt.tight_layout();
                     
-                    print(f'full process [ {(" >>> ").join(full_process)} ]')
+                    # print(f'full process [ {(" >>> ").join(full_process)} ]')
 
-                    return masked_image
+                    return masked_image, full_process
 
                 elif cv2.contourArea(max_contour) < int(image_area*.75):
                     if (cv2.contourArea(sorted_contours[0]) + 
@@ -295,14 +367,15 @@ def tailgate_detect_and_mask(image):
                         # ax2.axis('off')
                         # plt.tight_layout();
 
-                        print(f'full process [ {(" >>> ").join(full_process)} ]')
+                        # print(f'full process [ {(" >>> ").join(full_process)} ]')
 
-                        return masked_image
+                        return masked_image, full_process
 
     full_process.append('border processes tried')                
 
     full_process.append('tailgate not found')
-    print(f'full tailgate process [ {(" >>> ").join(full_process)} ]')
+    # print(f'full tailgate process [ {(" >>> ").join(full_process)} ]')
+    return False, full_process
 
 
 
@@ -314,17 +387,17 @@ def handle_detect_and_mask(image):
     full_process = [f'mode of image: {mode_of_image}']
 
     if mode_of_image >= 125:
-        first_range_tens = np.arange(0,-111, -10)
+        brightness_range = np.arange(0,-111, -10)
         full_process.append('darken process')
     else:
-        first_range_tens = np.arange(0,111, 10)
+        brightness_range = np.arange(0,111, 10)
         full_process.append('lighten process')
 
-    second_range_tens = np.arange(0,111, 10)
+    contrast_range = np.arange(0,111, 10)
    
 
-    for i in first_range_tens:
-        for j in second_range_tens:
+    for i in brightness_range:
+        for j in contrast_range:
             
             #adapted = adaptive_histogram(image.copy())
             #bilat = cv2.bilateralFilter(image.copy(),9,75,75)
@@ -338,9 +411,9 @@ def handle_detect_and_mask(image):
                 max_contour = sorted_contours[0] #largest contour (hopefully the tailgate)
 
                 if cv2.contourArea(max_contour) > int(image_area*.4):
-                    print(f'area of max contour: {cv2.contourArea(max_contour)}')
-                    print(f'.4 * image area: {int(image_area*.4)}')
-                    print(f'image area: {image_area}')
+                    # print(f'area of max contour: {cv2.contourArea(max_contour)}')
+                    # print(f'.4 * image area: {int(image_area*.4)}')
+                    # print(f'image area: {image_area}')
                     full_process.append('contour > 40% of area')
 
                     hull = cv2.convexHull(max_contour)
@@ -357,9 +430,9 @@ def handle_detect_and_mask(image):
                     ax2.axis('off')
                     plt.tight_layout();
                     
-                    print(f'full process [ {(" -> ").join(full_process)} ]')
+                    # print(f'full process [ {(" -> ").join(full_process)} ]')
 
-                    return masked_image
+                    return masked_image, full_process
 
                 elif cv2.contourArea(max_contour) < int(image_area*.40) \
                 and len(sorted_contours) > 1:
@@ -376,16 +449,16 @@ def handle_detect_and_mask(image):
                         masked_image = transparent_handle_mask(image, hull)
                         full_process.append('masked')
 
-                        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
-                        ax1.imshow(image)
-                        ax1.axis('off')
-                        ax2.imshow(masked_image)
-                        ax2.axis('off')
-                        plt.tight_layout();
+                        # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
+                        # ax1.imshow(image)
+                        # ax1.axis('off')
+                        # ax2.imshow(masked_image)
+                        # ax2.axis('off')
+                        # plt.tight_layout();
 
-                        print(f'full process [ {(" -> ").join(full_process)} ]')
+                        # print(f'full process [ {(" -> ").join(full_process)} ]')
 
-                        return masked_image
+                        return masked_image, full_process
 
                 elif cv2.contourArea(max_contour) < int(image_area*.4):
                     sorted_contours2 = contours_from_edges_on_contours(image.copy(), sorted_contours)
@@ -400,16 +473,16 @@ def handle_detect_and_mask(image):
                         masked_image = transparent_handle_mask(image, hull)
                         full_process.append('masked')
 
-                        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
-                        ax1.imshow(image)
-                        ax1.axis('off')
-                        ax2.imshow(masked_image)
-                        ax2.axis('off')
-                        plt.tight_layout();
+                        # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
+                        # ax1.imshow(image)
+                        # ax1.axis('off')
+                        # ax2.imshow(masked_image)
+                        # ax2.axis('off')
+                        # plt.tight_layout();
                         
-                        print(f'full process [ {(" -> ").join(full_process)} ]')
+                        # print(f'full process [ {(" -> ").join(full_process)} ]')
 
-                        return masked_image
+                        return masked_image, full_process
                     
                     elif cv2.contourArea(sorted_contours2[0]) < int(image_area*.4) \
                     and len(sorted_contours2) > 1:
@@ -426,20 +499,20 @@ def handle_detect_and_mask(image):
                             masked_image = transparent_handle_mask(image, hull)
                             full_process.append('masked')
 
-                            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
-                            ax1.imshow(image)
-                            ax1.axis('off')
-                            ax2.imshow(masked_image)
-                            ax2.axis('off')
-                            plt.tight_layout();
+                            # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,6))
+                            # ax1.imshow(image)
+                            # ax1.axis('off')
+                            # ax2.imshow(masked_image)
+                            # ax2.axis('off')
+                            # plt.tight_layout();
 
-                            print(f'full process [ {(" -> ").join(full_process)} ]')
+                            # print(f'full process [ {(" -> ").join(full_process)} ]')
 
-                            return masked_image
+                            return masked_image, full_process
                 else:
                     pass
             else:
                 pass
-    print(f'brightness {i} | contrast {j}')
     full_process.append('handle not found')
-    print(f'full handle process [ {(" -> ").join(full_process)} ]')
+    # print(f'full handle process [ {(" -> ").join(full_process)} ]')
+    return False, full_process
