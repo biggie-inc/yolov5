@@ -201,21 +201,21 @@ def tailgate_detect_and_mask(image):
     full_process = [f'mode of image: {mode_of_image}']
 
     if mode_of_image >= 125: # The mode of the image will determine if the image needs to be darkened or lightened
-        first_range_tens = np.arange(0,-111, -10)
+        brightness_range = np.arange(0,-111, -10)
         full_process.append('darken process')
     else:
-        first_range_tens = np.arange(0,111, 10)
+        brightness_range = np.arange(0,111, 10)
         full_process.append('lighten process')
 
-    second_range_tens = np.arange(0,111, 10)
+    contrast_range = np.arange(0,111, 10)
    
     # Multiple sections of for loops used as edge detection should be primary,
     # Corner detection secondary,
     # And border creation to force-close edges a last resort
 
 
-    for i in first_range_tens:
-        for j in second_range_tens:
+    for i in brightness_range:
+        for j in contrast_range:
             contrast = apply_brightness_contrast(image.copy(), brightness=i, contrast=j)
             bilat = cv2.bilateralFilter(contrast.copy(),9,75,75) #bilateral filter slower than gaussian but maintains edges better
             edges = layered_edge_detection(bilat.copy())
@@ -273,8 +273,8 @@ def tailgate_detect_and_mask(image):
     full_process.append('edge processes tried')
 
     # Corner Processing        
-    for i in first_range_tens:
-        for j in second_range_tens:
+    for i in brightness_range:
+        for j in contrast_range:
             contrast = apply_brightness_contrast(image.copy(), brightness=i, contrast=j)
             bilat = cv2.bilateralFilter(contrast.copy(),9,75,75) #bilateral filter slower than gaussian but maintains edges better
             edges = layered_edge_detection(bilat.copy())
@@ -311,8 +311,8 @@ def tailgate_detect_and_mask(image):
     full_process.append('corner processes tried')          
 
     # If all else fails.... border process
-    for i in first_range_tens:
-        for j in second_range_tens:
+    for i in brightness_range:
+        for j in contrast_range:
             contrast = apply_brightness_contrast(image.copy(), brightness=i, contrast=j)
             bilat = cv2.bilateralFilter(contrast.copy(),9,75,75)  
 
@@ -387,17 +387,17 @@ def handle_detect_and_mask(image):
     full_process = [f'mode of image: {mode_of_image}']
 
     if mode_of_image >= 125:
-        first_range_tens = np.arange(0,-111, -10)
+        brightness_range = np.arange(0,-111, -10)
         full_process.append('darken process')
     else:
-        first_range_tens = np.arange(0,111, 10)
+        brightness_range = np.arange(0,111, 10)
         full_process.append('lighten process')
 
-    second_range_tens = np.arange(0,111, 10)
+    contrast_range = np.arange(0,111, 10)
    
 
-    for i in first_range_tens:
-        for j in second_range_tens:
+    for i in brightness_range:
+        for j in contrast_range:
             
             #adapted = adaptive_histogram(image.copy())
             #bilat = cv2.bilateralFilter(image.copy(),9,75,75)
