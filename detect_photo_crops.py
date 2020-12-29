@@ -25,17 +25,15 @@ from tailgate_utils import *
 
 
 
-def append_dict_as_row(file_name, dict_of_elem, field_names):
-    # Open file in append mode
+def append_dict_as_row(file_name, dict_of_elems, field_names):
     with open(file_name, 'a+', newline='') as write_obj:
         writer = DictWriter(write_obj, fieldnames=field_names)
-        writer.writerow(dict_of_elem)
+        writer.writerow(dict_of_elems)
 
-def create_csv_from_dict(file_name, dict_of_elem, field_names):
+def create_csv_headers_from_dict(file_name, dict_of_elems, field_names):
     with open(file_name, 'w') as csv:
         writer = DictWriter(csv, fieldnames=field_names)
         writer.writeheader()
-        writer.writerows(dict_of_elem)
 
 
 def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, tailgate_ythird_coord, px_ratio, info_to_csv):
@@ -191,9 +189,10 @@ def detect(save_img=False):
                     'handle_height':None, 'handle_process':None, 'tg_width':None, 'tg_height':None, 
                     'tg_process':None, 'px_ratio':None}
                 
-                field_names = list(info_to_csv.keys())
+                field_names = ['file','objects_detected','handle_loc','handle_width','handle_height',
+                                'handle_process', 'tg_width','tg_height','tg_process','px_ratio']
 
-                csv_filepath = f'{out_path}/tailgate_data.csv'
+                csv_filepath = f'./tailgate_data.csv'
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -316,10 +315,11 @@ def detect(save_img=False):
 
 
             # write or append info_to_csv
-            if os.path.isfile(csv_filepath): 
+            if os.path.isfile(csv_filepath):
                 append_dict_as_row(csv_filepath, info_to_csv, field_names)
             else:
-                create_csv_from_dict(csv_filepath, info_to_csv, field_names)   
+                create_csv_headers_from_dict(csv_filepath, info_to_csv, field_names)
+                append_dict_as_row(csv_filepath, info_to_csv, field_names)  
 
 
             # Print time (inference + NMS)
