@@ -210,7 +210,7 @@ def tailgate_detect_and_mask(image):
     second_range_tens = np.arange(0,111, 10)
    
     # Multiple sections of for loops used as edge detection should be primary,
-    # Corner detection secondary
+    # Corner detection secondary,
     # And border creation to force-close edges a last resort
 
 
@@ -272,7 +272,7 @@ def tailgate_detect_and_mask(image):
 
     full_process.append('edge processes tried')
 
-    # Corner Processing         
+    # Corner Processing        
     for i in first_range_tens:
         for j in second_range_tens:
             contrast = apply_brightness_contrast(image.copy(), brightness=i, contrast=j)
@@ -319,7 +319,7 @@ def tailgate_detect_and_mask(image):
             # adding border around image to force-close contours as a last measure
             bordered_edges = border_process(bilat.copy())
             bordered_sorted_contours = get_contours(bordered_edges.copy())
-            # drawn_ctrs = cv2.drawContours(bilat.copy(), bordered_sorted_contours, -1, (0, 255, 0), 2)
+            # drawn_ctrs = cv2.drawContours(bilat.copy(), bordered_sorted_contours, -1, (0, 255, 0), 2) #uncomment and plot for visualization of contours
             # plt.imshow(drawn_ctrs)
                
             if len(bordered_sorted_contours) > 0:
@@ -513,7 +513,6 @@ def handle_detect_and_mask(image):
                     pass
             else:
                 pass
-    # print(f'brightness {i} | contrast {j}')
     full_process.append('handle not found')
     # print(f'full handle process [ {(" -> ").join(full_process)} ]')
     return False, full_process

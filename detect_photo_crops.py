@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import cv2
+from numpy.core.records import array
 import torch
 import torch.backends.cudnn as cudnn
 import numpy as np
@@ -57,21 +58,28 @@ def final_truck(image, transp_tg, transp_h, tg_coords, h_coords, diff_adjust, in
     # print(f'transp_tg image shape: {transp_tg.shape}')
 
     # cv2.imwrite('./inference/image_input.png', final_image)
-    # cv2.imwrite('./inference/transp_tg.png', transp_tg)
-    # cv2.imwrite('./inference/transp_h.png', transp_h)
+    cv2.imwrite('./inference/transp_tg.png', transp_tg)
+    cv2.imwrite('./inference/transp_h.png', transp_h)
 
     tg_y1, tg_y2, tg_x1, tg_x2  = tg_coords
     h_y1, h_y2, h_x1, h_x2 = h_coords
 
     # print(f'diff adjust: {diff_adjust}')
 
-    if isinstance(diff_adjust, int):
-        final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg[diff_adjust:,:,:]
-    else:
-        final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg
+    
+    if type(transp_tg)==np.ndarray and len(transp_tg.shape)==4:
+        if isinstance(diff_adjust, int):
+            # final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg[diff_adjust:,:,:]
+            final_image[diff_adjust:tg_y2, tg_x1:tg_x2] = transp_tg
+        else:
+            final_image[tg_y1:tg_y2, tg_x1:tg_x2] = transp_tg
 
-    if type(transp_h)==np.ndarray:
+        if type(transp_h)==np.ndarray:
         final_image[h_y1:h_y2, h_x1:h_x2] = transp_h
+        
+    else:
+        cv2.putText(final_image, 'no tailgate transparency created', (0,0), 0, 1, [0, 0, 0], 
+                        thickness=2, lineType=cv2.LINE_AA)
 
     return final_image, info_to_csv
 
@@ -255,15 +263,16 @@ def detect(save_img=False):
                             
 
                 # function draws and labels the distance from bottom of handle to bottom of tailgate
-                # if handle in top 1/3 of tailgate
-                # returns the y coord of handle bottom if so, else returns False
+                # if handle in top 1/3 of tailgate, returns the y coord of handle bottom,
+                #  else returns False
                 adj_tailgate_top, info_to_csv = draw_dist_btm_h_to_btm_t(im0, handle_mids, handles_ymax, 
                                                             tailgates_ymax, tailgate_ythird_coord, px_ratio, info_to_csv)
 
                 if adj_tailgate_top > crop_coords['tg'][0]:
                     # This all affects final_tailgate()
-                    crop_coords['diff_adjust'] = int(adj_tailgate_top - crop_coords['tg'][0])
-                    crop_coords['tg'][0] = int(adj_tailgate_top)
+                    # crop_coords['diff_adjust'] = int(adj_tailgate_top - crop_coords['tg'][0])
+                    crop_coords['diff_adjust'] = int(adj_tailgate_top)
+                    #crop_coords['tg'][0] = int(adj_tailgate_top)
                     transp_h = False
                 else:
                     transp_h, full_handle_process = handle_detect_and_mask(im_h)
