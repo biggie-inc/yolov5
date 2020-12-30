@@ -13,6 +13,7 @@ def get_mode(color_image):
 
 
 def adaptive_histogram(image):
+    # not currently used in the process, but may be helpful in the future
     grayscale = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2GRAY)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(5,5))
     cl1 = clahe.apply(grayscale)
@@ -20,7 +21,7 @@ def adaptive_histogram(image):
 
 
 def apply_brightness_contrast(input_img, brightness = 0, contrast = 0):
-    
+    # adjusts brightness (-110 to 110) and contrast (0 to 100)
     if brightness != 0:
         if brightness > 0:
             shadow = brightness
@@ -58,6 +59,7 @@ def auto_canny(image, sigma=0.66):
 
 
 def layered_edge_detection(bilat):
+    # gets edges after a bilateral filter, dilates found edges to hopefully connect them, gets edges on those dilations
     edges1 = auto_canny(bilat.copy())
 
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5)) 
@@ -69,6 +71,7 @@ def layered_edge_detection(bilat):
 
 
 def get_contours(edged_image):
+    # gets contours of edges and returns them sorted from biggest to smallest
     cnts, _ = cv2.findContours(edged_image.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     sorted_contours = sorted(cnts, key=cv2.contourArea, reverse=True)
 
@@ -76,6 +79,8 @@ def get_contours(edged_image):
 
 
 def contours_from_edges_on_contours(image, sorted_contours):
+    # if its having a rough go, it finds edges of the contours, and gets contours of those edges
+    # stacks on stacks on stacks
     drawn_ctrs = cv2.drawContours(image.copy(), sorted_contours, -1, (0, 255, 0), 2) 
 
     edges3 = auto_canny(drawn_ctrs.copy())
@@ -87,7 +92,9 @@ def contours_from_edges_on_contours(image, sorted_contours):
     return sorted_contours2
 
 
-def get_array_of_corners(image):    
+def get_array_of_corners(image):
+    # finds important object corners of tailgate and filters for the object corners in the actual corners of the image
+
     try:
         grayscale = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2GRAY)
     except:
@@ -101,9 +108,10 @@ def get_array_of_corners(image):
 
     for i in corners:
         x,y = i.ravel() #isn't ravel the coolest?
-        #cv2.circle(inspect_all_corners,(x,y),3,255,-1) # places circles on all found corners
+        #cv2.circle(inspect_all_corners,(x,y),3,255,-1) # places circles on all found corners for viz
         #plt.imshow(inspect_all_corners)
 
+    # these lines define the corners areas of each image
     line_1 = int(image.shape[0] * 0.1)
     line_2 = int(image.shape[0] - line_1)
     line_3 = int(image.shape[1] - line_1)
@@ -138,6 +146,7 @@ def remove_border(bordered_image):
     return cropped
 
 def border_process(bilat_image):
+    # last ditch effort to create 2px border around an image to force-close contours, then removes the border
     border = add_border(bilat_image)
     edges = layered_edge_detection(border)
     cropped = remove_border(edges.copy())
@@ -164,7 +173,7 @@ def transparent_handle_mask(orig_image, hull):
 
 
 def get_tailgate_dims(image):
-    #which x,y pairs aren't transparent. Outputs two arrays - [0]:y's, [1]:x's
+    # finds which x,y pairs are transparent. tg_coords is two arrays - [0]:y's, [1]:x's. outputs pixel dims of transp area
     tg_coords = np.where(np.all((image == [0,0,0,0]),axis=-1)) 
     if len(tg_coords[0]) > 1 and len(tg_coords[1]) > 1:
         tg_ymin, tg_ymax = min(tg_coords[0]), max(tg_coords[0])
@@ -181,7 +190,7 @@ def get_tailgate_dims(image):
 
 
 def get_handle_dims(image):
-    #which x,y pairs aren't transparent. Outputs two arrays - [0]:y's, [1]:x's
+    #which x,y pairs aren't transparent. handle_coords is two arrays - [0]:y's, [1]:x's. outputs pixel dims of non transp area
     handle_coords = np.where(np.all((image != [0,0,0,0]),axis=-1))
     if len(handle_coords[0]) > 1 and len(handle_coords[1]) > 1:
         handle_ymin, handle_ymax = min(handle_coords[0]), max(handle_coords[0])
@@ -195,6 +204,10 @@ def get_handle_dims(image):
 
 
 def tailgate_detect_and_mask(image):
+    # complete process for finding and masking the tailgate portion
+    # works very well on silver and white images. possible improvements would be to try grayscale on the darker images with
+    # the adaptive histogram function and then running it throught the brightness/contrast process,
+    # but I believe you'll need to change the bilateral filter because it only works on color images, or filter before grayscale
     image_area = image.shape[0] * image.shape[1]
     mode_of_image = get_mode(image.copy())
 
@@ -209,11 +222,12 @@ def tailgate_detect_and_mask(image):
 
     contrast_range = np.arange(0,111, 10)
    
-    # Multiple sections of for loops used as edge detection should be primary,
+    # Multiple sections of for loops used:
+    # Basic edge detection should be primary,
     # Corner detection secondary,
     # And border creation to force-close edges a last resort
 
-
+    # edge/contour detection process
     for i in brightness_range:
         for j in contrast_range:
             contrast = apply_brightness_contrast(image.copy(), brightness=i, contrast=j)
@@ -330,7 +344,7 @@ def tailgate_detect_and_mask(image):
 
                     hull = cv2.convexHull(max_contour)
 
-                    # drawn_ctrs = cv2.drawContours(contrast.copy(), [hull], -1, (0, 255, 0), 2)
+                    # drawn_ctrs = cv2.drawContours(contrast.copy(), [hull], -1, (0, 255, 0), 2) # viz
 
                     masked_image = transparent_tailgate_mask(image, hull)
                     full_process.append('masked')
@@ -380,7 +394,7 @@ def tailgate_detect_and_mask(image):
 
 
 def handle_detect_and_mask(image):
-
+    # similar to the full tailgate process, but doesn't need as many processes
     image_area = image.shape[0] * image.shape[1]
     mode_of_image = get_mode(image.copy())
 
@@ -404,7 +418,7 @@ def handle_detect_and_mask(image):
             adjusted = apply_brightness_contrast(image.copy(), brightness=i, contrast=j)
             bilat = cv2.bilateralFilter(adjusted.copy(),11,75,75)
 
-            edges = layered_edge_detection(adjusted.copy())
+            edges = layered_edge_detection(bilat.copy())
             sorted_contours = get_contours(edges)
 
             if len(sorted_contours) > 0:

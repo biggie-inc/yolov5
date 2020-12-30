@@ -21,7 +21,8 @@ from utils.general import (
     xyxy2xywh, plot_one_box, strip_optimizer, set_logging, hypotenuse)
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
-from tailgate_utils import *
+
+from tailgate_utils import *  # all custom tailgate image processing functions are coming from tailgate_utils.py
 
 
 
@@ -37,7 +38,7 @@ def create_csv_headers_from_dict(file_name, dict_of_elems, field_names):
 
 
 def draw_dist_btm_h_to_btm_t(image, handle_mids, handles_ymax, tailgates_ymax, tailgate_ythird_coord, px_ratio, info_to_csv):
-#  ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3
+#  ability to measure between bottom of handle and bottom of tailgate if handle in top 1/3 for the YOLO image output
     for i, (handle_mid, max_point) in enumerate(zip(handle_mids, handles_ymax)): 
         hyps = [hypotenuse(handle_mid, b) for b in tailgate_ythird_coord]
         closest_index = np.argmin(hyps) # gets index of closest point via hypotenuse
